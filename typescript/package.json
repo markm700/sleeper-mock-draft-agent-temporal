@@ -1,0 +1,31 @@
+{
+  "name": "sleeper-mock-draft-agent",
+  "version": "1.0.0",
+  "description": "Keeper league mock draft agent with real-time adaptation and advanced analytics",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js",
+    "import": "ts-node src/scripts/import-historical.ts",
+    "analyze": "ts-node src/scripts/run-analysis.ts",
+    "test": "jest"
+  },
+  "keywords": ["sleeper", "fantasy", "football", "draft", "keeper"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "pg": "^8.11.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0",
+    "@types/jest": "^29.5.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0"
+  }
+}

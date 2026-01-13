@@ -1,0 +1,27 @@
+[project]
+name = "sleeper-mock-draft-agent"
+version = "1.0.0"
+description = "Keeper league mock draft agent with real-time adaptation and advanced analytics"
+authors = [{name = "Your Name", email = "you@example.com"}]
+dependencies = [
+    "requests>=2.31.0",
+    "psycopg2-binary>=2.9.9",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+]
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.12.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+import-data = "src.scripts.import_historical:main"
+run-analysis = "src.scripts.run_analysis:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
