@@ -1,0 +1,24 @@
+node_modules
+.DS_Store
+.tmp
+tmp
+dist
+npm-debug.log*
+yarn.lock
+.vscode/launch.json
+/package-lock.json
+
+database/schema.sql
+
+# Project
+*.env-langfuse
+*.env-n8n
+*.env-pg-langfuse
+*.env-pg-n8n
+
+# MacOS
+.DS_Store
+
+# Data volumes
+.n8n
+.cache

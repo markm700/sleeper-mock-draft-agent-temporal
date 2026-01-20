@@ -1,0 +1,15 @@
+[project]
+name = "sleeper-mock-draft-agent"
+version = "1.0.0"
+description = "Fantasy football draft agent using Sleeper API"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "psycopg2-binary>=2.9.9",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.5.0",
+]
+
+[project.scripts]
+import-data = "src.scripts.import_historical:main"
+analyze = "src.scripts.run_analysis:main"

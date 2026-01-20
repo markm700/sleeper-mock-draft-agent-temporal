@@ -1,0 +1,29 @@
+{
+  "name": "sleeper-mock-draft-agent",
+  "version": "1.0.0",
+  "description": "Fantasy football draft agent using Sleeper API",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "import": "ts-node src/scripts/import-historical.ts",
+    "analyze": "ts-node src/scripts/run-analysis.ts",
+    "dev": "ts-node-dev --respawn src/index.ts"
+  },
+  "keywords": ["fantasy", "football", "sleeper", "draft"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "pg": "^8.11.0",
+    "dotenv": "^16.4.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0",
+    "ts-node-dev": "^2.0.0"
+  }
+}
