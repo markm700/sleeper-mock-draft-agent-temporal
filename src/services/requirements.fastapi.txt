@@ -1,0 +1,2 @@
+fastapi[standard]
+temporalio==1.21.1

@@ -1,0 +1,5 @@
+FROM python:3.14-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.fastapi.txt
+CMD ["fastapi", "run", "api.py"]

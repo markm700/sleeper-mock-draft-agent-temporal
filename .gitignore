@@ -1,24 +1,91 @@
-node_modules
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Temporal
+temporal-data/
+
+# Docker
+docker/temporal/dynamicconfig/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Exports
+exports/
+*.csv
+*.json
+
+# OS
 .DS_Store
-.tmp
-tmp
-dist
-npm-debug.log*
-yarn.lock
-.vscode/launch.json
-/package-lock.json
+Thumbs.db
 
-database/schema.sql
+# Analysis artifacts
+.results/
 
-# Project
-*.env-langfuse
-*.env-n8n
-*.env-pg-langfuse
-*.env-pg-n8n
-
-# MacOS
-.DS_Store
-
-# Data volumes
-.n8n
-.cache
+# Project specific
+mock-draft-agent-guides/
+custom-specs/
+LICENSE.md

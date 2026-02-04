@@ -1,781 +1,945 @@
-# Sleeper API - Mock Draft Agent Implementation Guide v2
+# Sleeper API Guide for Mock Draft Agent (v2)
+*Created: January 27, 2026*  
+*Updated: January 27, 2026*  
+*Technology Stack: Python + Temporal*
 
-## Project Overview
-**Goal:** Build a keeper league mock draft agent that simulates draft behavior based on 6 years of historical data, providing real-time recommendations and pick grading during the draft.
+## Overview
 
-**Key Features:**
-- Keeper league support (2 keepers per team, 1 round escalation on repeat keeps)
-- Manager-specific draft tendency analysis
-- Live draft simulation with real-time recommendations
-- Dual pick grading: standard rankings vs. league-specific value
-- Trade analysis for keeper determination
-- n8n workflow automation with HTTP request nodes
-- Docker-based data store for local deployment
+The Sleeper API is a **read-only HTTP API** that provides free access to users' leagues, drafts, and rosters. This guide focuses on the endpoints and data structures needed to build a mock draft agent based on your fantasy league's historical data.
 
-**Timeline:** Draft in September 2026 (8 months development time)
+**Implementation Strategy**: This project will be built using **Python** for data processing and analysis, with **Temporal** orchestrating the workflows for data collection, analysis, and mock draft simulation.
 
----
-
-## Requirements Summary
-
-### League Context ✓ (Answered in v2)
-- **League Type:** Keeper league (2 keepers/team, escalating 1 round if re-kept)
-- **History:** 6 seasons (2021-2025), Year 6 starting Sept 2026
-- **Members:** Stable roster, potential for future changes
-- **Settings:** Variable (playoff structure, scoring adjustments over time)
-- **Data Scope:** All available historical data for the league
-
-### Technical Stack ✓ (Answered in v2)
-- **Automation:** n8n with HTTP request nodes
-- **Deployment:** Docker containers
-- **Storage:** Local data store (PostgreSQL or similar)
-- **API Integration:** Sleeper API (read-only, no auth required)
-- **Execution:** On-demand with optional cron scheduling
-
-### Core Functionality ✓ (Answered in v2)
-1. **Pre-Draft Analysis:**
-   - Predict 2 most likely keepers per team
-   - Historical draft pattern analysis per manager
-   - League-specific player valuations
-
-2. **Live Draft Simulation:**
-   - Real-time pick recommendations as draft progresses
-   - Manager behavior predictions ("Owner X likely picks position Y")
-   - Dual pick grading system:
-     * Grade A: Standard/national rankings comparison
-     * Grade B: League-specific historical value
-   - Value alerts for both standard and owner-specific opportunities
-
-3. **Data Analysis:**
-   - All historical draft picks with positions/rounds
-   - Trade analysis (impacts keeper eligibility and draft capital)
-   - Waiver pickup tracking (for keeper purposes - round 15 keeps)
-   - Positional scarcity timing within the league
-   - Championship team composition patterns
-   - ADP variance from standard rankings
+### Key Constraints
+- **No authentication required** (read-only API)
+- **Rate limit**: Stay under 1000 API calls per minute to avoid IP blocking
+- **Base URL**: `https://api.sleeper.app/v1/`
 
 ---
 
-## Sleeper API Endpoints Reference
+## Core Workflow for Mock Draft Agent
 
-### Base Information
-**Base URL:** `https://api.sleeper.app/v1`  
-**Rate Limit:** Stay under 1000 calls/minute  
-**Authentication:** None required (read-only API)
+### 1. Get User Information
+Start by identifying the user whose league history you want to analyze.
 
-### Priority 1: User & League Discovery
+**Endpoint**: `GET /user/<username>` or `GET /user/<user_id>`
 
-#### 1.1 Get User Information
+```bash
+curl "https://api.sleeper.app/v1/user/<username>"
 ```
-GET /user/<username>
-```
-**Returns:** `user_id`, `username`, `display_name`, `avatar`  
-**Note:** Template to accept any username input
 
-#### 1.2 Get All Leagues for User
+**Response**:
+```json
+{
+  "username": "sleeperuser",
+  "user_id": "12345678",
+  "display_name": "SleeperUser",
+  "avatar": "cc12ec49965eb7856f84d71cf85306af"
+}
 ```
-GET /user/<user_id>/leagues/nfl/<season>
-```
-**Seasons to fetch:** 2021, 2022, 2023, 2024, 2025  
-**Returns:** Array of leagues with `league_id`, `draft_id`, `status`, `settings`, `scoring_settings`, `roster_positions`
 
-#### 1.3 Get Specific League Details
-```
-GET /league/<league_id>
-```
-**Returns:** Complete league configuration including `previous_league_id` for dynasty tracking
+**⚠️ Important**: Store `user_id` (not `username`) as usernames can change over time.
 
 ---
 
-### Priority 2: Historical Draft Data
+### 2. Get All Leagues for User
+Retrieve all leagues the user participated in for a specific sport and season.
 
-#### 2.1 Get All Drafts for League
-```
-GET /league/<league_id>/drafts
-```
-**Returns:** Array of drafts (should be 1 per season for your league)
+**Endpoint**: `GET /user/<user_id>/leagues/<sport>/<season>`
 
-#### 2.2 Get Specific Draft Details
+```bash
+curl "https://api.sleeper.app/v1/user/<user_id>/leagues/nfl/2024"
 ```
-GET /draft/<draft_id>
-```
-**Critical fields:**
-- `draft_order`: user_id → draft slot mapping
-- `slot_to_roster_id`: draft slot → roster_id mapping
-- `type`: "snake" (likely for your league)
-- `settings`: roster slots, rounds, pick timer
 
-#### 2.3 Get All Draft Picks
+**Response**:
+```json
+[
+  {
+    "league_id": "289646328504385536",
+    "name": "Sleeperbot Friends League",
+    "season": "2024",
+    "status": "complete",
+    "draft_id": "289646328508579840",
+    "total_rosters": 12,
+    "roster_positions": [...],
+    "scoring_settings": {...},
+    "settings": {...},
+    "previous_league_id": "198946952535085056"
+  }
+]
 ```
-GET /draft/<draft_id>/picks
-```
-**Returns per pick:**
-- `player_id`, `picked_by` (user_id), `roster_id`
-- `round`, `draft_slot`, `pick_no`
-- `metadata`: player name, position, team, status
-- `is_keeper`: Boolean flag
 
-**Must fetch for:** All 5 completed drafts (2021-2025)
-
-#### 2.4 Get Traded Draft Picks
-```
-GET /draft/<draft_id>/traded_picks
-```
-**Returns:** `season`, `round`, `roster_id` (original owner), `owner_id` (current owner)  
-**Importance:** Critical for accurate keeper analysis
+**Key Fields**:
+- `league_id`: Unique identifier for the league
+- `draft_id`: Links to the draft data
+- `status`: Can be `"pre_draft"`, `"drafting"`, `"in_season"`, or `"complete"`
+- `previous_league_id`: For dynasty leagues, links to previous season
+- `scoring_settings`: PPR, half-PPR, standard, etc.
+- `roster_positions`: Array showing roster construction (QB, RB, WR, TE, FLEX, etc.)
 
 ---
 
-### Priority 3: Manager & Roster Analysis
+### 3. Get League Details
+Fetch comprehensive information about a specific league.
 
-#### 3.1 Get League Users
-```
-GET /league/<league_id>/users
-```
-**Returns:** All owners with `user_id`, `display_name`, `metadata.team_name`, `is_owner` (commissioner)
+**Endpoint**: `GET /league/<league_id>`
 
-#### 3.2 Get League Rosters
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>"
 ```
-GET /league/<league_id>/rosters
-```
-**Returns per roster:**
-- `roster_id`, `owner_id`
-- `players`: array of player_ids
-- `settings`: wins, losses, total points
-- `starters`: which players were started
+
+This returns the same structure as the leagues array above but for a single league.
 
 ---
 
-### Priority 4: Season Performance Data
+### 4. Get League Rosters
+Retrieve all rosters in a league to see player ownership and roster construction.
 
-#### 4.1 Get Weekly Matchups
-```
-GET /league/<league_id>/matchups/<week>
-```
-**Weeks:** 1-18 (regular season + playoffs)  
-**Returns:** `roster_id`, `starters`, `players`, `points`, `matchup_id`  
-**Use:** Analyze which draft picks performed well, championship rosters
+**Endpoint**: `GET /league/<league_id>/rosters`
 
-#### 4.2 Get Transactions
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>/rosters"
 ```
-GET /league/<league_id>/transactions/<round>
-```
-**Types:** "trade", "waiver", "free_agent"  
-**Returns:** `adds`, `drops`, `draft_picks` (in trades), `roster_ids`, `waiver_budget`  
-**Use:** Track trades (keeper implications), waiver pickups (round 15 keeper eligibility)
 
-#### 4.3 Get Traded Picks (All Seasons)
+**Response**:
+```json
+[
+  {
+    "roster_id": 1,
+    "owner_id": "188815879448829952",
+    "league_id": "206827432160788480",
+    "players": ["1046", "138", "147", "2257", "2307", ...],
+    "starters": ["2307", "2257", "4034", "147", "642", ...],
+    "reserve": [],
+    "settings": {
+      "wins": 5,
+      "losses": 9,
+      "ties": 0,
+      "fpts": 1617,
+      "fpts_decimal": 78,
+      "fpts_against": 1670,
+      "fpts_against_decimal": 32,
+      "waiver_position": 7,
+      "waiver_budget_used": 0,
+      "total_moves": 0
+    }
+  }
+]
 ```
-GET /league/<league_id>/traded_picks
-```
-**Returns:** All future traded picks across seasons  
-**Use:** Track draft capital movement affecting current year
+
+**Key Fields**:
+- `players`: Array of all player IDs on the roster
+- `starters`: Ordered array of starting player IDs
+- `settings`: Season statistics (wins, losses, points scored, etc.)
 
 ---
 
-### Priority 5: Player Database
+### 5. Get League Users
+Retrieve all users participating in a league.
 
-#### 5.1 Fetch All NFL Players
-```
-GET /players/nfl
-```
-**Size:** ~5MB  
-**Frequency:** Once per day maximum (cache locally)  
-**Returns:** Complete player database with:
-- `player_id`, `first_name`, `last_name`
-- `position`, `team`, `fantasy_positions`
-- `status`, `injury_status`, `age`, `years_exp`
-- `search_rank`: popularity/relevance score
+**Endpoint**: `GET /league/<league_id>/users`
 
-#### 5.2 Get Trending Players (Optional)
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>/users"
 ```
-GET /players/nfl/trending/<type>?lookback_hours=24&limit=25
+
+**Response**:
+```json
+[
+  {
+    "user_id": "<user_id>",
+    "username": "<username>",
+    "display_name": "<display_name>",
+    "avatar": "1233456789",
+    "is_owner": true,
+    "metadata": {
+      "team_name": "Dezpacito"
+    }
+  }
+]
 ```
-**Types:** "add" or "drop"  
-**Note:** Low priority per your answer to Q16
+
+**Key Fields**:
+- `is_owner`: Indicates commissioner status
+- `metadata.team_name`: Custom team name if set
 
 ---
 
-### Priority 6: Current NFL State
+### 6. Get Draft Information
 
-#### 6.1 Get NFL Season State
+#### Get All Drafts for User
+**Endpoint**: `GET /user/<user_id>/drafts/<sport>/<season>`
+
+```bash
+curl "https://api.sleeper.app/v1/user/<user_id>/drafts/nfl/2024"
 ```
-GET /state/nfl
+
+#### Get All Drafts for League
+**Endpoint**: `GET /league/<league_id>/drafts`
+
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>/drafts"
 ```
-**Returns:** `week`, `season`, `season_type`, `season_start_date`, `league_season`  
-**Use:** Validate current season data, check if draft season is active
+
+**Response**:
+```json
+[
+  {
+    "draft_id": "257270643320426496",
+    "league_id": "257270637750382592",
+    "type": "snake",
+    "status": "complete",
+    "start_time": 1515700800000,
+    "season": "2024",
+    "settings": {
+      "teams": 12,
+      "rounds": 15,
+      "pick_timer": 120,
+      "slots_qb": 1,
+      "slots_rb": 2,
+      "slots_wr": 2,
+      "slots_te": 1,
+      "slots_flex": 2,
+      "slots_def": 1,
+      "slots_k": 1,
+      "slots_bn": 5
+    },
+    "metadata": {
+      "scoring_type": "ppr",
+      "name": "My Dynasty",
+      "description": ""
+    },
+    "draft_order": {
+      "12345678": 1,
+      "23434332": 2
+    },
+    "slot_to_roster_id": {
+      "1": 10,
+      "2": 3,
+      "3": 5
+    }
+  }
+]
+```
+
+**Key Fields**:
+- `type`: Draft type (typically `"snake"` or `"linear"`)
+- `draft_order`: Maps `user_id` to draft slot position
+- `slot_to_roster_id`: Maps draft slot to `roster_id`
 
 ---
 
-## Data Collection Workflow (n8n Implementation)
+### 7. Get All Draft Picks
+**This is critical for training your mock draft agent!**
 
-### Phase 1: Initial Data Extraction (Run Once, Cache Locally)
+**Endpoint**: `GET /draft/<draft_id>/picks`
 
-**Workflow: "Historical Data Import"**
-
-1. **Input Node:** Accept username parameter
-2. **HTTP Request:** Get user_id from username
-3. **Loop:** For each season (2021-2025):
-   - Get leagues for user/season
-   - Identify target league (by name or continuity via `previous_league_id`)
-   - Get league settings & scoring
-   - Get draft_id from league
-   - Get complete draft data (picks + traded picks)
-   - Get league users
-   - Get league rosters
-   - For each week 1-18: Get matchups
-   - For each week 1-18: Get transactions
-   - Get traded picks
-4. **HTTP Request:** Get player database (once)
-5. **Database Insert:** Store all data in PostgreSQL/Docker
-
-**Estimated API Calls:** 
-- ~250-300 calls per season × 5 seasons = 1,250-1,500 total
-- Well within rate limits if batched properly
-
----
-
-### Phase 2: Data Processing & Analysis
-
-**Workflow: "Manager Tendency Analysis"**
-
-For each manager:
-1. Extract all historical draft picks by round/position
-2. Calculate positional preferences by round (e.g., "Takes RB in rounds 1-3: 80%")
-3. Identify reach patterns (players drafted before their typical ADP)
-4. Track keeper selections over time
-5. Analyze championship roster composition
-6. Calculate success metrics (wins, playoff appearances, championships)
-
-**Workflow: "League Valuation Model"**
-
-1. For each player drafted historically:
-   - Calculate total fantasy points scored that season
-   - Determine value over replacement by position
-   - Compare to draft position (round/pick)
-   - Generate league-specific ADP vs. national ADP variance
-2. Identify league-specific position scarcity patterns
-3. Map "rush" rounds for each position (when does league draft heavy at position?)
-4. Calculate optimal roster construction from championship teams
-
-**Workflow: "Keeper Prediction Model"**
-
-For current season (2026):
-1. For each team's current roster (end of 2025 season):
-   - Identify eligible keepers (not kept twice by same owner)
-   - Calculate keeper value (projected draft round - keeper cost)
-   - Rank top 3-4 keeper candidates per team
-   - Predict 2 most likely keepers based on value + owner tendencies
-2. Account for traded players who could be keepers for new teams
-3. Track waiver pickups eligible for round 15 keeps
-
----
-
-### Phase 3: Live Mock Draft Engine
-
-**Workflow: "Mock Draft Simulator"**
-
-**Pre-Draft Setup:**
-1. Load 2026 player rankings (external: FantasyPros, ESPN, Yahoo)
-2. Load predicted keepers per team (locks 2 picks per team)
-3. Set draft order for 2026
-4. Initialize available player pool (remove keepers)
-
-**Draft Loop (per pick):**
-1. **Determine Current Pick:**
-   - Round, pick number, owner_id
-   - Remaining roster needs for owner
-   - Position scarcity at current point
-
-2. **Generate Recommendations:**
-   - **Best Available Player (BPA):** Top 5 by national consensus rankings
-   - **Position Need:** Top 3 players at positions of need
-   - **Owner Tendency Match:** Top 3 players matching owner's historical patterns
-   - **Value Pick:** Players with highest projected value vs. current pick position
-   - **League Value Pick:** Players valued higher in league history than nationally
-
-3. **Predict Owner's Actual Pick:**
-   - Weight factors: 40% owner tendency, 30% BPA, 20% positional need, 10% keeper strategy
-   - Return predicted player
-
-4. **Record Pick & Update:**
-   - Remove player from available pool
-   - Update roster for owner
-   - Advance to next pick
-
-5. **Grade Previous Pick (if applicable):**
-   - **Standard Grade:** Compare to national ADP/rankings
-     * A: Drafted within 5 picks of ADP
-     * B: Drafted 6-10 picks from ADP
-     * C: Drafted 11-20 picks from ADP
-     * D/F: Significant reach (>20 picks early)
-   - **League Grade:** Compare to league historical ADP
-     * Apply same grading scale using league data
-   - Display both grades with explanation
-
-6. **Value Alerts:**
-   - "Player X available - typically goes in round Y (national)"
-   - "Player Z available - strong fit for your draft history at position"
-
-**Output:**
-- Real-time pick-by-pick simulation
-- Recommendations for user at their picks
-- Predicted picks for other owners
-- Dual grading system for all picks
-- Value alerts throughout draft
-
----
-
-### Phase 4: Real-Time Draft Integration (Future)
-
-**Workflow: "Live Draft Monitor"**
-
-1. Poll Sleeper API for current draft state (if draft is active)
-2. Compare actual picks vs. predictions
-3. Adjust future predictions based on deviations
-4. Update recommendations in real-time
-5. Grade picks as they occur
-
----
-
-## Implementation Priority & Roadmap
-
-### Sprint 1 (Weeks 1-2): Data Foundation
-- [ ] Set up Docker environment
-- [ ] Configure PostgreSQL database schema
-- [ ] Build n8n workflow for user/league discovery
-- [ ] Test API connectivity and rate limiting
-- [ ] **Deliverable:** Can retrieve user_id and league_ids for all 5 seasons
-
-### Sprint 2 (Weeks 3-5): Historical Data Import
-- [ ] Build draft data extraction workflow (all picks, all seasons)
-- [ ] Build transaction data extraction workflow
-- [ ] Import player database and create daily refresh job
-- [ ] Build league settings/scoring extraction
-- [ ] Store all data in database with proper relationships
-- [ ] **Deliverable:** Complete historical database populated
-
-### Sprint 3 (Weeks 6-8): Manager Tendency Analysis
-- [ ] Create manager draft pattern analysis queries
-- [ ] Build positional preference calculator per manager
-- [ ] Identify reach patterns and value picks by manager
-- [ ] Calculate success metrics (wins, championships) by draft strategy
-- [ ] **Deliverable:** Manager tendency reports for all owners
-
-### Sprint 4 (Weeks 9-11): League Valuation Model
-- [ ] Calculate league-specific player values (historical points)
-- [ ] Build position scarcity analyzer
-- [ ] Create league ADP calculator
-- [ ] Compare league ADP vs. national ADP (integrate external rankings)
-- [ ] Identify championship roster patterns
-- [ ] **Deliverable:** League valuation model with variance reports
-
-### Sprint 5 (Weeks 12-14): Keeper Prediction System
-- [ ] Build keeper eligibility checker (track who kept whom)
-- [ ] Create keeper value calculator (draft round - keep cost)
-- [ ] Implement keeper escalation logic (1 round higher if re-kept)
-- [ ] Account for traded players and waiver pickups
-- [ ] Predict 2 keepers per team for 2026
-- [ ] **Deliverable:** 2026 keeper predictions for all 12 teams
-
-### Sprint 6 (Weeks 15-18): Mock Draft Engine Core
-- [ ] Build draft state manager (tracks picks, roster composition)
-- [ ] Implement player recommendation engine (BPA, need, tendency, value)
-- [ ] Create pick prediction algorithm (owner behavior model)
-- [ ] Build dual grading system (standard + league grades)
-- [ ] Implement value alert system
-- [ ] **Deliverable:** Working mock draft simulator (command-line/API)
-
-### Sprint 7 (Weeks 19-21): Integration & Testing
-- [ ] Integrate all components into unified n8n workflow
-- [ ] Build REST API endpoints for draft queries
-- [ ] Create manual trigger for on-demand execution
-- [ ] Test with historical draft data (simulate 2025 draft)
-- [ ] Validate predictions against actual outcomes
-- [ ] **Deliverable:** End-to-end mock draft system
-
-### Sprint 8 (Weeks 22-24): External Rankings Integration
-- [ ] Scrape/integrate FantasyPros consensus rankings
-- [ ] Integrate ESPN and Yahoo rankings
-- [ ] Build ranking aggregator and comparator
-- [ ] Update grading system with multi-source rankings
-- [ ] **Deliverable:** Enhanced grading with external data sources
-
-### Sprint 9 (Weeks 25-28): UI & Usability
-- [ ] Create draft board visualization (optional web UI)
-- [ ] Build recommendation display interface
-- [ ] Implement pick grading display
-- [ ] Add draft history review tool
-- [ ] **Deliverable:** User-friendly draft interface
-
-### Sprint 10 (Weeks 29-32): Pre-Season Preparation
-- [ ] Update player database for 2026 season
-- [ ] Refresh external rankings (July/August 2026)
-- [ ] Run keeper predictions for all teams
-- [ ] Validate 2026 draft order
-- [ ] Test complete draft simulation
-- [ ] **Deliverable:** Production-ready system for September 2026 draft
-
----
-
-## Database Schema
-
-### Tables
-
-#### `users`
-- `user_id` (PK)
-- `username`
-- `display_name`
-- `avatar`
-
-#### `leagues`
-- `league_id` (PK)
-- `season` (year)
-- `name`
-- `status`
-- `total_rosters`
-- `scoring_settings` (JSONB)
-- `roster_positions` (JSONB)
-- `previous_league_id` (FK to leagues)
-
-#### `drafts`
-- `draft_id` (PK)
-- `league_id` (FK)
-- `season`
-- `type` (snake/linear)
-- `status`
-- `draft_order` (JSONB)
-- `slot_to_roster_id` (JSONB)
-- `settings` (JSONB)
-
-#### `draft_picks`
-- `pick_id` (PK)
-- `draft_id` (FK)
-- `player_id`
-- `picked_by_user_id` (FK to users)
-- `roster_id`
-- `round`
-- `draft_slot`
-- `pick_no`
-- `is_keeper`
-- `player_metadata` (JSONB)
-
-#### `rosters`
-- `roster_id` (PK)
-- `league_id` (FK)
-- `owner_id` (FK to users)
-- `season`
-- `players` (JSONB array)
-- `settings` (JSONB - wins/losses/points)
-
-#### `matchups`
-- `matchup_id` (PK)
-- `league_id` (FK)
-- `season`
-- `week`
-- `roster_id` (FK)
-- `starters` (JSONB)
-- `players` (JSONB)
-- `points`
-
-#### `transactions`
-- `transaction_id` (PK)
-- `league_id` (FK)
-- `season`
-- `week`
-- `type` (trade/waiver/free_agent)
-- `roster_ids` (JSONB)
-- `adds` (JSONB)
-- `drops` (JSONB)
-- `draft_picks` (JSONB)
-- `creator_user_id` (FK)
-
-#### `players`
-- `player_id` (PK)
-- `first_name`
-- `last_name`
-- `position`
-- `team`
-- `fantasy_positions` (JSONB)
-- `status`
-- `injury_status`
-- `age`
-- `years_exp`
-- `search_rank`
-- `last_updated` (for daily refresh)
-
-#### `keeper_history`
-- `keeper_id` (PK)
-- `season`
-- `roster_id` (FK)
-- `player_id` (FK)
-- `keep_cost` (round number)
-- `times_kept` (count for escalation)
-
-#### `manager_tendencies` (computed table)
-- `tendency_id` (PK)
-- `user_id` (FK)
-- `season`
-- `round_number`
-- `position_drafted`
-- `was_reach` (boolean)
-- `adp_variance`
-
----
-
-## n8n Workflow Structure
-
-### Workflow 1: Data Import Orchestrator
-**Trigger:** Manual or scheduled (annual)
-**Nodes:**
-1. Manual trigger with username input
-2. Get user data (HTTP Request)
-3. Loop seasons 2021-2025 (Split in Batches)
-4. Per season:
-   - Get leagues (HTTP Request)
-   - Filter target league (IF node)
-   - Get draft data (HTTP Request)
-   - Get picks (HTTP Request)
-   - Get users (HTTP Request)
-   - Get rosters (HTTP Request)
-   - Get transactions (Loop weeks, HTTP Request)
-   - Get matchups (Loop weeks, HTTP Request)
-5. Get players database (HTTP Request)
-6. Transform and insert to PostgreSQL (Postgres nodes)
-7. Success notification
-
-### Workflow 2: Keeper Predictor
-**Trigger:** Manual (pre-season)
-**Nodes:**
-1. Manual trigger
-2. Query current rosters (Postgres)
-3. Query keeper history (Postgres)
-4. Calculate keeper eligibility (Code node)
-5. Calculate keeper values (Code node)
-6. Rank keepers per team (Code node)
-7. Predict top 2 (Function node)
-8. Store predictions (Postgres)
-9. Output keeper report
-
-### Workflow 3: Mock Draft Simulator API
-**Trigger:** Webhook (REST API endpoint)
-**Nodes:**
-1. Webhook trigger (accepts: draft_state, current_pick, user_id)
-2. Load predicted keepers (Postgres)
-3. Load player rankings (Postgres/HTTP)
-4. Load manager tendencies (Postgres)
-5. Calculate recommendations (Code node):
-   - BPA
-   - Position need
-   - Owner tendency match
-   - Value picks
-6. Predict opponent picks (Function node)
-7. Grade previous pick if applicable (Code node)
-8. Generate value alerts (Function node)
-9. Return JSON response with all recommendations
-10. Log pick to draft state (Postgres)
-
-### Workflow 4: Player Database Refresh
-**Trigger:** Cron (daily at 3 AM)
-**Nodes:**
-1. Schedule trigger
-2. Get players from Sleeper (HTTP Request)
-3. Truncate/update players table (Postgres)
-4. Success notification
-
----
-
-## API Endpoints (n8n Webhooks)
-
-### POST `/api/mock-draft/start`
-**Body:** `{ "username": "string", "season": 2026 }`  
-**Returns:** Draft session ID, predicted keepers, draft order
-
-### POST `/api/mock-draft/next-pick`
-**Body:** `{ "session_id": "string", "draft_state": {...} }`  
-**Returns:** Recommendations, predicted pick, value alerts
-
-### POST `/api/mock-draft/record-pick`
-**Body:** `{ "session_id": "string", "player_id": "string" }`  
-**Returns:** Pick grades (standard + league), updated draft state
-
-### GET `/api/managers/{user_id}/tendencies`
-**Returns:** Historical draft patterns for specific manager
-
-### GET `/api/keepers/predictions/{season}`
-**Returns:** Predicted keepers for all teams
-
-### GET `/api/league/valuation/{season}`
-**Returns:** League-specific player valuations and ADP data
-
----
-
-## Key Algorithms
-
-### 1. Keeper Value Calculator
-```
-keeper_value = (projected_draft_round - keep_cost_round) × position_scarcity_multiplier
-
-Where:
-- keep_cost_round = last_draft_round - 1 (or 15 for waivers)
-- If player kept before by same owner: keep_cost_round = previous_keep_round - 1
-- position_scarcity_multiplier = based on league historical positional runs
+```bash
+curl "https://api.sleeper.app/v1/draft/<draft_id>/picks"
 ```
 
-### 2. Manager Pick Prediction
-```
-predicted_pick = weighted_score(available_players)
-
-weighted_score = 
-  (0.40 × manager_tendency_match_score) +
-  (0.30 × bpa_ranking_score) +
-  (0.20 × positional_need_score) +
-  (0.10 × keeper_strategy_score)
-
-Adjust weights based on:
-- Round number (early rounds favor BPA)
-- Manager's historical variance from rankings
-- Positional scarcity at current pick
-```
-
-### 3. Pick Grading Algorithm
-```
-standard_grade = calculate_adp_variance(player, pick_number, national_adp)
-league_grade = calculate_adp_variance(player, pick_number, league_adp)
-
-adp_variance = abs(pick_number - adp)
-
-Grading scale:
-A: variance ≤ 5 picks
-B: variance 6-10 picks
-C: variance 11-20 picks
-D: variance 21-30 picks
-F: variance > 30 picks
-
-Special considerations:
-- Position runs (grade more favorably if position scarce)
-- Injury news (adjust expectations)
-- Keeper escalation (account for limited keeper pool)
+**Response**:
+```json
+[
+  {
+    "player_id": "2391",
+    "picked_by": "234343434",
+    "roster_id": "1",
+    "round": 1,
+    "draft_slot": 1,
+    "pick_no": 1,
+    "metadata": {
+      "team": "ARI",
+      "position": "RB",
+      "first_name": "David",
+      "last_name": "Johnson",
+      "status": "Active",
+      "injury_status": ""
+    },
+    "is_keeper": null,
+    "draft_id": "257270643320426496"
+  }
+]
 ```
 
-### 4. Value Alert System
+**Key Fields**:
+- `pick_no`: Overall pick number (1, 2, 3...)
+- `round`: Draft round
+- `draft_slot`: Which column on the draft board (user's position)
+- `player_id`: ID to look up in players database
+- `is_keeper`: Indicates if this was a keeper pick
+- `metadata`: Contains player info snapshot at draft time
+
+---
+
+### 8. Get Player Information
+Since all player references use IDs, you need the player database.
+
+**Endpoint**: `GET /players/nfl`
+
+```bash
+curl "https://api.sleeper.app/v1/players/nfl"
 ```
-For each unpicked player:
-  standard_value = (player_national_adp - current_pick_number)
-  league_value = (player_league_adp - current_pick_number)
-  
-  If standard_value > 10: Alert "Standard value available"
-  If league_value > 10: Alert "League-specific value available"
-  
-  If player matches current_owner tendencies AND value > 5:
-    Alert "Excellent fit for your draft history"
+
+**⚠️ Important**: 
+- Response size is ~5MB
+- Call **once per day maximum**
+- Store data locally
+- Use for mapping player IDs to player details
+
+**Response Structure**:
+```json
+{
+  "3086": {
+    "player_id": "3086",
+    "first_name": "Tom",
+    "last_name": "Brady",
+    "position": "QB",
+    "team": "NE",
+    "number": 12,
+    "age": 40,
+    "height": "6'4\"",
+    "weight": "220",
+    "college": "Michigan",
+    "years_exp": 14,
+    "fantasy_positions": ["QB"],
+    "depth_chart_position": 1,
+    "depth_chart_order": 1,
+    "status": "Active",
+    "injury_status": null,
+    "search_rank": 24
+  }
+}
+```
+
+**Key Fields for Mock Draft Agent**:
+- `position`: Player position
+- `fantasy_positions`: Eligible fantasy positions
+- `team`: Current NFL team
+- `depth_chart_position`: Depth on team
+- `search_rank`: Sleeper's internal ranking
+- `status`: Active, Injured Reserve, etc.
+- `injury_status`: Current injury status
+
+---
+
+### 9. Get Matchups (Weekly Performance)
+Analyze weekly performance to understand player value in your league.
+
+**Endpoint**: `GET /league/<league_id>/matchups/<week>`
+
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>/matchups/1"
+```
+
+**Response**:
+```json
+[
+  {
+    "roster_id": 1,
+    "matchup_id": 2,
+    "points": 124.5,
+    "custom_points": null,
+    "starters": ["421", "4035", "3242", ...],
+    "players": ["421", "4035", "3242", "2133", ...]
+  }
+]
+```
+
+**Key Fields**:
+- `points`: Total points scored based on league scoring
+- `starters`: Players who started (in order)
+- `players`: All players on roster that week
+- Teams with same `matchup_id` played against each other
+
+---
+
+### 10. Get Transactions
+Track waiver wire activity, trades, and roster moves.
+
+**Endpoint**: `GET /league/<league_id>/transactions/<round>`
+
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>/transactions/1"
+```
+
+**Response Types**:
+
+**Trade**:
+```json
+{
+  "type": "trade",
+  "transaction_id": "434852362033561600",
+  "status": "complete",
+  "roster_ids": [2, 1],
+  "leg": 1,
+  "draft_picks": [
+    {
+      "season": "2024",
+      "round": 5,
+      "roster_id": 1,
+      "previous_owner_id": 1,
+      "owner_id": 2
+    }
+  ],
+  "adds": {"2315": 1},
+  "drops": {"1736": 2},
+  "waiver_budget": [
+    {
+      "sender": 2,
+      "receiver": 3,
+      "amount": 55
+    }
+  ],
+  "creator": "160000000000000000",
+  "consenter_ids": [2, 1]
+}
+```
+
+**Free Agent/Waiver**:
+```json
+{
+  "type": "free_agent",
+  "transaction_id": "434890120798142464",
+  "status": "complete",
+  "roster_ids": [1],
+  "leg": 1,
+  "adds": {"2315": 1},
+  "drops": {"1736": 1},
+  "settings": {"waiver_bid": 44},
+  "metadata": null
+}
 ```
 
 ---
 
-## Testing Strategy
+### 11. Get Traded Picks
+Important for dynasty leagues.
 
-### Unit Tests
-- Keeper eligibility checker (edge cases: trades, repeats)
-- Pick grading algorithm (various ADPs)
-- Manager tendency scoring
-- Value calculator
+**Endpoint**: `GET /league/<league_id>/traded_picks`
 
-### Integration Tests
-- Complete data import from Sleeper API (mock 2025 season)
-- End-to-end mock draft simulation
-- Keeper prediction accuracy (validate against actual 2025 keepers)
-- Manager prediction accuracy (simulate 2024 draft, compare to actual)
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>/traded_picks"
+```
 
-### Performance Tests
-- API rate limiting compliance
-- Database query performance (draft recommendations < 500ms)
-- Mock draft simulation speed (full 15-round draft < 30 seconds)
+**Response**:
+```json
+[
+  {
+    "season": "2025",
+    "round": 5,
+    "roster_id": 1,
+    "previous_owner_id": 1,
+    "owner_id": 2
+  }
+]
+```
 
-### Validation Tests
-- Historical validation: Simulate 2024 draft with 2021-2023 data
-- Compare predictions to actual 2024 results
-- Measure prediction accuracy:
-  - Keeper predictions: Target 80%+ accuracy (16+ of 20 keepers correct)
-  - Manager pick predictions: Target 60%+ exact match, 85%+ correct position
-  - Value alerts: Validate ROI of recommended picks
+---
+
+### 12. Get NFL State
+Get current NFL season information.
+
+**Endpoint**: `GET /state/nfl`
+
+```bash
+curl "https://api.sleeper.app/v1/state/nfl"
+```
+
+**Response**:
+```json
+{
+  "week": 2,
+  "season_type": "regular",
+  "season_start_date": "2025-09-10",
+  "season": "2025",
+  "previous_season": "2024",
+  "leg": 2,
+  "league_season": "2026",
+  "league_create_season": "2026",
+  "display_week": 3
+}
+```
+
+---
+
+### 13. Get Playoff Brackets
+**Endpoint**: `GET /league/<league_id>/winners_bracket`  
+**Endpoint**: `GET /league/<league_id>/losers_bracket`
+
+```bash
+curl "https://api.sleeper.app/v1/league/<league_id>/winners_bracket"
+```
+
+**Response Structure**:
+```json
+[
+  {
+    "r": 1,
+    "m": 1,
+    "t1": 3,
+    "t2": 6,
+    "w": null,
+    "l": null
+  },
+  {
+    "r": 2,
+    "m": 3,
+    "t1": 1,
+    "t2": null,
+    "t2_from": {"w": 1},
+    "w": null,
+    "l": null
+  }
+]
+```
+
+**Key Fields**:
+- `r`: Round number
+- `m`: Match ID
+- `t1`, `t2`: `roster_id` of teams (or derived from previous matches)
+- `w`, `l`: Winner and loser `roster_id` (if completed)
+- `t1_from`, `t2_from`: Where teams come from in bracket progression
+
+---
+
+### 14. Trending Players
+Get trending add/drop data (optional, for context).
+
+**Endpoint**: `GET /players/nfl/trending/<type>?lookback_hours=<hours>&limit=<int>`
+
+```bash
+curl "https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=25"
+```
+
+**Response**:
+```json
+[
+  {
+    "player_id": "1111",
+    "count": 45
+  }
+]
+```
+
+---
+
+## Python + Temporal Implementation Architecture
+
+### Temporal Workflow Structure
+
+```python
+# workflows/data_collection.py
+@workflow.defn
+class DataCollectionWorkflow:
+    """Main workflow for collecting historical league data"""
+    
+    @workflow.run
+    async def run(self, user_id: str, seasons: list[str]) -> dict:
+        # Orchestrate data collection activities
+        pass
+
+@workflow.defn
+class MockDraftSimulationWorkflow:
+    """Workflow for running mock draft simulations"""
+    
+    @workflow.run
+    async def run(self, league_id: str, settings: dict) -> dict:
+        # Run draft simulation
+        pass
+```
+
+### Activity Structure
+
+```python
+# activities/api_client.py
+@activity.defn
+async def fetch_user(username: str) -> dict:
+    """Activity to fetch user data from Sleeper API"""
+    pass
+
+@activity.defn
+async def fetch_league_drafts(league_id: str) -> list[dict]:
+    """Activity to fetch all drafts for a league"""
+    pass
+
+@activity.defn
+async def fetch_draft_picks(draft_id: str) -> list[dict]:
+    """Activity to fetch all picks in a draft"""
+    pass
+```
+
+### Recommended Python Libraries
+
+**API & HTTP**:
+- `requests` - HTTP client for API calls (async implementation)
+- `tenacity` - Retry logic with exponential backoff (if needed beyond Temporal retries)
+
+**Data Processing**:
+- `pandas` - Data analysis and manipulation
+- Raw Python data structures for lightweight operations
+
+**Storage**:
+- `sqlalchemy` - ORM for PostgreSQL operations
+- `alembic` - Database migrations
+
+**ML/Analysis**:
+- `tensorflow` or `pytorch` - Deep learning if needed, otherwise TemporalAI
+- `scikit-learn` - Traditional ML models
+- `numpy` - Numerical computing
+
+**Temporal**:
+- `temporalio` - Temporal Python SDK
+
+**Utilities**:
+- `python-dotenv` - Environment configuration
+- Standard `logging` module with structured logging
+
+**Code Quality**:
+- `black` - Code formatting
+- `ruff` - Fast Python linter
+- `mypy` - Static type checking
+- Pre-commit hooks for automated checks
+
+---
+
+## Implementation Specifications (v2)
+
+### ✅ Answered Questions (v2): 100/100
+
+## Project Structure
+
+```
+sleeper-mock-draft-agent-temporal/
+├── src/
+│   ├── workflows/
+│   │   ├── __init__.py
+│   │   ├── data_collection.py
+│   │   ├── analysis.py
+│   │   └── mock_draft_simulation.py
+│   ├── activities/
+│   │   ├── __init__.py
+│   │   ├── api_client.py
+│   │   ├── database.py
+│   │   └── ml_models.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── database_models.py
+│   │   └── api_models.py
+│   └── utils/
+│       ├── __init__.py
+│       ├── config.py
+│       └── logging.py
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── fixtures/
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── migrations/
+│   └── versions/
+├── .env.example
+├── .gitignore
+├── pyproject.toml
+├── README.md
+└── requirements.txt
+```
+
+---
+
+## Database Schema (PostgreSQL)
+
+### Core Tables
+
+```sql
+-- Leagues table
+CREATE TABLE leagues (
+    league_id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(255),
+    season VARCHAR(10),
+    status VARCHAR(50),
+    total_rosters INTEGER,
+    scoring_settings JSONB,
+    roster_positions JSONB,
+    settings JSONB,
+    previous_league_id VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- League owners/users
+CREATE TABLE league_owners (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    username VARCHAR(255),
+    display_name VARCHAR(255),
+    league_id VARCHAR(50) REFERENCES leagues(league_id),
+    is_owner BOOLEAN DEFAULT FALSE,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Drafts table
+CREATE TABLE drafts (
+    draft_id VARCHAR(50) PRIMARY KEY,
+    league_id VARCHAR(50) REFERENCES leagues(league_id),
+    type VARCHAR(50),
+    status VARCHAR(50),
+    start_time BIGINT,
+    season VARCHAR(10),
+    settings JSONB,
+    metadata JSONB,
+    draft_order JSONB,
+    slot_to_roster_id JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Draft picks table
+CREATE TABLE picks (
+    id SERIAL PRIMARY KEY,
+    pick_no INTEGER NOT NULL,
+    draft_id VARCHAR(50) REFERENCES drafts(draft_id),
+    player_id VARCHAR(50) NOT NULL,
+    picked_by VARCHAR(50),
+    roster_id VARCHAR(50),
+    round INTEGER,
+    draft_slot INTEGER,
+    is_keeper BOOLEAN,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(draft_id, pick_no)
+);
+
+-- Players table
+CREATE TABLE players (
+    player_id VARCHAR(50) PRIMARY KEY,
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    position VARCHAR(10),
+    team VARCHAR(10),
+    fantasy_positions JSONB,
+    depth_chart_position INTEGER,
+    status VARCHAR(50),
+    injury_status VARCHAR(255),
+    search_rank INTEGER,
+    metadata JSONB,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Rosters table
+CREATE TABLE rosters (
+    id SERIAL PRIMARY KEY,
+    roster_id INTEGER NOT NULL,
+    league_id VARCHAR(50) REFERENCES leagues(league_id),
+    owner_id VARCHAR(50),
+    players JSONB,
+    starters JSONB,
+    settings JSONB,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(league_id, roster_id)
+);
+
+-- Transactions table
+CREATE TABLE transactions (
+    transaction_id VARCHAR(50) PRIMARY KEY,
+    league_id VARCHAR(50) REFERENCES leagues(league_id),
+    type VARCHAR(50),
+    status VARCHAR(50),
+    leg INTEGER,
+    roster_ids JSONB,
+    adds JSONB,
+    drops JSONB,
+    draft_picks JSONB,
+    settings JSONB,
+    created BIGINT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Pre-calculated ADP table for performance
+CREATE TABLE adp_cache (
+    id SERIAL PRIMARY KEY,
+    league_id VARCHAR(50),
+    player_id VARCHAR(50),
+    season VARCHAR(10),
+    avg_pick DECIMAL(5,2),
+    std_dev DECIMAL(5,2),
+    sample_size INTEGER,
+    calculated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(league_id, player_id, season)
+);
+
+-- Indexes for performance
+CREATE INDEX idx_picks_draft_id ON picks(draft_id);
+CREATE INDEX idx_picks_player_id ON picks(player_id);
+CREATE INDEX idx_drafts_league_id ON drafts(league_id);
+CREATE INDEX idx_drafts_season ON drafts(season);
+CREATE INDEX idx_rosters_league_id ON rosters(league_id);
+CREATE INDEX idx_transactions_league_id ON transactions(league_id);
+CREATE INDEX idx_players_position ON players(position);
+CREATE INDEX idx_players_team ON players(team);
+CREATE INDEX idx_adp_league_season ON adp_cache(league_id, season);
+
+-- Full-text search on player names
+CREATE INDEX idx_players_name_gin ON players 
+USING gin(to_tsvector('english', first_name || ' ' || last_name));
+```
+
+---
+
+## Implementation Roadmap
+
+### Phase 1: Foundation (Weeks 1-2)
+- ✅ Set up project structure
+- ✅ Configure Python environment (modern stable version)
+- ✅ Set up PostgreSQL database
+- ✅ Initialize Temporal server (Docker)
+- ✅ Create database schema with migrations (Alembic)
+- ✅ Set up environment configuration (.env)
+- ✅ Configure code quality tools (Black, ruff, mypy)
+
+### Phase 2: Data Collection (Weeks 3-4)
+- Implement Sleeper API client activities (async with requests)
+- Build data collection workflows
+  - User/league discovery
+  - Historical draft data collection (last 5 years)
+  - Player database sync (daily scheduled)
+  - Transaction history collection
+  - Weekly matchup data collection
+- Implement request queuing for rate limiting
+- Set up caching in PostgreSQL
+- Test with personal league data
+
+### Phase 3: Data Processing & Storage (Week 5)
+- Implement database operations with SQLAlchemy
+- Build data transformation activities
+- Calculate and store ADP (weighted by recency)
+- Process keeper data separately
+- Handle scoring_settings per season
+- Implement player ID mapping (PostgreSQL lookup)
+
+### Phase 4: Analysis & User Profiling (Weeks 6-7)
+- Build owner profiling workflows
+  - K-means clustering for archetypes
+  - Draft position adaptation analysis
+  - Reach/value metrics calculation
+  - Homer bias detection
+  - Risk tolerance modeling
+  - Handcuff pattern tracking
+- Apply exponential decay to historical behavior
+- Identify positional run patterns
+- Calculate team needs based on roster construction
+
+### Phase 5: ML Model Development (Weeks 8-10)
+- Frame prediction as ranking problem
+- Feature engineering
+  - Player features (position, ADP, injury history)
+  - Drafter features (past picks, preferences, risk profile)
+  - Context features (round, pick, remaining positions, team needs)
+- Implement categorical encoding (embeddings, one-hot)
+- Build league-specific models (TensorFlow/PyTorch or TemporalAI)
+- Handle class imbalance (class weights/focal loss)
+- Temporal split for train/test
+- Model evaluation (% predicted in correct round)
+- Track performance for 60-75% accuracy target
+
+### Phase 6: Mock Draft Simulation (Weeks 11-12)
+- Build mock draft simulation workflow
+- Implement Monte Carlo simulation (1000+ iterations)
+- Support user overrides (e.g., keeper selections)
+- Calculate pick probabilities
+- Generate top 3 best available + top 3 best value recommendations
+- Export results to CSV/JSON
+- Optimize for < 1 minute runtime
+- Cache common scenarios
+
+### Phase 7: API & Integration (Week 13)
+- Build FastAPI REST endpoints
+- Implement Temporal signals for triggers
+- Use Temporal queries for status updates
+- Configure workflow scheduling
+  - Weekly league sync
+  - Daily player updates (season)
+  - Event-driven offseason updates
+- Set up Temporal search attributes
+
+### Phase 8: Monitoring & Deployment (Week 14)
+- Configure Temporal Web UI monitoring
+- Implement structured logging
+- Set up dead letter queue for failed activities
+- Create Docker containers
+- Configure self-hosted Temporal server
+- Deploy to production environment
+- Test end-to-end workflow
+
+### Phase 9: Testing & Validation (Week 15)
+- Unit tests for critical functions (pytest)
+- Integration tests for workflows
+- Validate against historical drafts
+- Measure accuracy (60-75% target)
+- Test with incomplete data scenarios
+- Performance optimization
+
+### Phase 10: Future Enhancements (Post-MVP)
+- 80% test coverage
+- Frontend development (React/Vue)
+- Real-time draft simulation during live drafts
+- Expert rankings integration (secondary)
+- Advanced visualizations (heat maps, draft boards)
+- Multi-league support
+- Benchmarking against ADP/expert consensus
+- Custom metrics export
+
+---
+
+## Key Dependencies
+
+```toml
+# pyproject.toml or requirements.txt
+[tool.poetry.dependencies]
+python = "^3.12"
+temporalio = "^1.5.0"
+requests = "^2.31.0"
+sqlalchemy = "^2.0.0"
+alembic = "^1.13.0"
+psycopg2-binary = "^2.9.0"
+pandas = "^2.1.0"
+numpy = "^1.26.0"
+python-dotenv = "^1.0.0"
+tensorflow = "^2.15.0"  # or pytorch
+scikit-learn = "^1.3.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+black = "^23.12.0"
+ruff = "^0.1.9"
+mypy = "^1.7.0"
+pre-commit = "^3.6.0"
+```
+
+---
+
+## Next Steps
+
+1. ✅ **Complete specification** - All 100 questions answered in v2
+2. **Initialize project structure** - Set up directories and files
+3. **Configure development environment** - Python, PostgreSQL, Temporal, Docker
+4. **Begin Phase 1** - Foundation setup
+5. **Start data collection** - Connect to Sleeper API and collect league history
+6. **Build iteratively** - Follow roadmap phases
 
 ---
 
 ## Success Metrics
 
-### Primary Goals (for Sept 2026 draft)
-1. **Keeper Predictions:** ≥80% accuracy on 2 keepers per team
-2. **Manager Predictions:** ≥60% exact player match, ≥85% correct position
-3. **Pick Grading:** ≥90% consistency with post-season analysis
-4. **Value Recommendations:** Positive ROI (recommended picks outperform draft position)
-
-### Secondary Goals
-1. Complete historical database (all 5 seasons imported)
-2. Sub-500ms recommendation generation time
-3. Zero API rate limit violations during data import
-4. Successful Docker deployment on local machine
+- **Data Collection**: Successfully collect 5 years of league history
+- **Model Accuracy**: 60-75% of picks predicted in correct round
+- **Performance**: < 1 minute for 1000 mock draft simulations
+- **Reliability**: Workflows handle failures gracefully with retries
+- **Code Quality**: Pass all linting/type checks, 80% test coverage (future)
+- **User Value**: Provide actionable draft recommendations
 
 ---
 
-## Risk Mitigation
-
-### Risk 1: Sleeper API Changes
-**Mitigation:** 
-- Version all API endpoints in documentation
-- Implement error handling for API changes
-- Test connections monthly leading up to draft
-
-### Risk 2: Manager Behavior Changes
-**Mitigation:**
-- Weight recent seasons more heavily (2024-2025: 40%, 2023: 30%, 2021-2022: 30%)
-- Implement confidence scores on predictions
-- Provide multiple recommendation options vs. single prediction
-
-### Risk 3: Keeper Rule Complexity
-**Mitigation:**
-- Thoroughly document keeper escalation logic
-- Build test cases for all keeper scenarios
-- Manual validation of keeper predictions with league commissioner
-
-### Risk 4: External Ranking Data Availability
-**Mitigation:**
-- Support multiple ranking sources (FantasyPros, ESPN, Yahoo)
-- Graceful degradation if external data unavailable
-- Fallback to prior season rankings if necessary
-
-### Risk 5: Timeline Slippage
-**Mitigation:**
-- Build MVP first (core mock draft without all features)
-- Prioritize keeper predictions and manager tendencies
-- External rankings and advanced grading can be added post-MVP
-- Monthly checkpoint reviews against roadmap
-
----
-
-## Future Enhancements (Post-Sept 2026)
-
-1. **Machine Learning Model:** Replace weighted scoring with trained ML model on historical data
-2. **Trade Analyzer:** Suggest in-season trades based on roster needs and opponent tendencies
-3. **Waiver Wire Assistant:** Recommend pickups based on league value patterns
-4. **League Shareability:** Allow all league members to use the tool
-5. **Mobile App:** Build iOS/Android app for draft-day use
-6. **Real-Time Draft Sync:** Auto-sync with live Sleeper draft (no manual input)
-7. **Multi-League Support:** Analyze and compare across multiple leagues
-8. **Injury Impact Modeling:** Real-time adjustment of recommendations based on injury news
-9. **Auction Draft Support:** Adapt for auction/salary cap drafts
-10. **Custom Scoring Rules:** More granular handling of unique league scoring
-
----
-
-## Conclusion
-
-This specification provides a complete roadmap for building a keeper league mock draft agent using the Sleeper API, n8n automation, and Docker deployment. The phased approach prioritizes data foundation, analysis, and core functionality to deliver a working system by September 2026.
-
-**Next Steps:**
-1. Review and approve this specification
-2. Set up development environment (Docker, PostgreSQL, n8n)
-3. Begin Sprint 1: Data Foundation
-4. Establish weekly progress check-ins
-
-**Questions or concerns? Add them to the custom-specs file for iteration to v3.**
+*Last Updated: v2 - January 27, 2026*  
+*Status: Complete specification with all 100 questions answered*
