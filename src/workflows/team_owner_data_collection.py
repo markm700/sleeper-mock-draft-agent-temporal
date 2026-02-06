@@ -1,6 +1,6 @@
 from datetime import timedelta
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 

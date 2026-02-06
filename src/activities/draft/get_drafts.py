@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
