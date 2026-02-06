@@ -1,10 +1,9 @@
 """Sleeper API Client Activities - All API interactions with rate limiting"""
 
-import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
-import requests
+import httpx
 from temporalio import activity
 
 from src.utils.config import get_config
@@ -22,18 +21,30 @@ class SleeperAPIClient:
     def __init__(self):
         self.config = get_config()
         self.base_url = SLEEPER_API_BASE
-        self.session = requests.Session()
+        self._client: Optional[httpx.AsyncClient] = None
         # TODO: Implement rate limiting queue
+    
+    @property
+    def client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=30.0,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "sleeper-mock-draft-agent/1.0",
+                },
+            )
+        return self._client
 
-    def _make_request(self, endpoint: str) -> Any:
+    async def _make_request(self, endpoint: str) -> Any:
         """Make HTTP request to Sleeper API with error handling"""
         url = f"{self.base_url}/{endpoint}"
         
         try:
-            response = self.session.get(url, timeout=30)
+            response = await self.client.get(url)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
+        except httpx.HTTPError as e:
             logger.error(f"API request failed for {endpoint}: {str(e)}")
             raise
 
@@ -56,10 +67,7 @@ async def fetch_user(username_or_id: str) -> Dict[str, Any]:
     activity.logger.info(f"Fetching user: {username_or_id}")
     
     try:
-        user_data = await asyncio.to_thread(
-            _client._make_request,
-            f"user/{username_or_id}"
-        )
+        user_data = await _client._make_request(f"user/{username_or_id}")
         
         activity.logger.info(f"Successfully fetched user: {user_data.get('user_id')}")
         return user_data
@@ -87,8 +95,7 @@ async def fetch_user_leagues(params: Dict[str, str]) -> List[Dict[str, Any]]:
     activity.logger.info(f"Fetching leagues for user {user_id}, {sport} {season}")
     
     try:
-        leagues = await asyncio.to_thread(
-            _client._make_request,
+        leagues = await _client._make_request(
             f"user/{user_id}/leagues/{sport}/{season}"
         )
         
