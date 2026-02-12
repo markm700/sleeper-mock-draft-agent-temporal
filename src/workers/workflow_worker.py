@@ -6,6 +6,7 @@ from temporalio.worker import Worker
 from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
+    from activities.clients.postgres_client import get_postgres_client_manager
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
     from workflows.draft_data_collection import DraftDataCollectionWorkflow
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
@@ -39,6 +40,7 @@ async def main():
 
         # Initialize activity/workflow clients
         sleeper = get_sleeper_client_manager()
+        postgres = get_postgres_client_manager()
 
         try:
             print(f"Starting Workflow Worker...")
@@ -68,6 +70,7 @@ async def main():
         finally:
             # Ensure clients used are closed
             await sleeper.close()
+            await postgres.close()
             print("Workflow Worker has shut down.")
 
     except KeyboardInterrupt:
