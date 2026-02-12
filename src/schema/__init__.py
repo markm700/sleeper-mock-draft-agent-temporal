@@ -1,0 +1,1 @@
+"""Schema definitions for data in the Sleeper Mock Draft Agent"""
