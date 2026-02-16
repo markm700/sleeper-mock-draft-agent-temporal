@@ -1,2 +1,4 @@
 temporalio==1.21.1
 httpx[standard]
+pytest
+pytest-asyncio

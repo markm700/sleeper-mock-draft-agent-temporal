@@ -1,6 +1,4 @@
 {
-    "github.copilot.chat.search.semanticTextResults": true,
-    "github.copilot.chat.experimental.codeFeedback.instructions": [],
     "github.copilot.enable": {
         "markdown": true,
         "plaintext": true

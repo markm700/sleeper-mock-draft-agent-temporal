@@ -7,12 +7,22 @@ from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
+    from workflows.draft_data_collection import DraftDataCollectionWorkflow
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
+    from workflows.league_data_collection import LeagueDataCollectionWorkflow
+    from activities.draft.get_drafts import get_league_drafts
+    from activities.draft.get_draft_picks import get_specific_draft_picks
     from activities.team_owner.get_roster import get_team_owner_rosters
     from activities.team_owner.get_data import get_team_owner_data
+    from activities.league.get_data import get_league_data
 
 
 async def main():
+    """Entry point for the Temporal worker service.
+
+    Connects to the Temporal server, registers workflows and activities, and
+    runs the worker event loop.
+    """
     try:
         temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
         temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
@@ -33,8 +43,18 @@ async def main():
             worker = Worker(
                 client,
                 task_queue=temporal_task_queue,
-                workflows=[TeamOwnerDataCollectionWorkflow],
-                activities=[get_team_owner_rosters, get_team_owner_data],
+                workflows=[
+                    TeamOwnerDataCollectionWorkflow,
+                    LeagueDataCollectionWorkflow,
+                    DraftDataCollectionWorkflow
+                ],
+                activities=[
+                    get_league_data,
+                    get_league_drafts,
+                    get_specific_draft_picks,
+                    get_team_owner_rosters, 
+                    get_team_owner_data
+                ],
             )
             print("Workflow Worker started.")
 
@@ -43,7 +63,7 @@ async def main():
             print(f"Workflow Worker failed to start: {e}")
         finally:
             # Ensure clients used are closed
-            sleeper.close()
+            await sleeper.close()
             print("Workflow Worker has shut down.")
 
     except KeyboardInterrupt:

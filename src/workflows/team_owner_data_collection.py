@@ -10,13 +10,18 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class TeamOwnerDataCollectionWorkflowParams:
+    """Input parameters for the team owner data collection workflow."""
+
     username: str
     league_name: str
 
 @workflow.defn(name="team-owner-data-collection")
 class TeamOwnerDataCollectionWorkflow:
+    """Workflow that collects team owner and roster data across seasons."""
+
     @workflow.run
     async def run(self, params: TeamOwnerDataCollectionWorkflowParams) -> Dict[str, Any]:
+        """Execute the team owner data collection workflow."""
         workflow_activities = []
         activity_retry_policy = RetryPolicy(
             maximum_attempts=3,  # 3 total attempts, 2 retries
