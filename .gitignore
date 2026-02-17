@@ -76,8 +76,6 @@ dmypy.json
 # Exports
 exports/
 *.csv
-*.json
-
 # OS
 .DS_Store
 Thumbs.db

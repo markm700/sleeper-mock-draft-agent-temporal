@@ -1,2 +1,5 @@
 fastapi[standard]
+pytest
+pytest-asyncio
+slugify
 temporalio==1.21.1

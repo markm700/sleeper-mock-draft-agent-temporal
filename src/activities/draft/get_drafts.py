@@ -7,11 +7,13 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class GetLeagueDraftsParams:
+    """Parameters for fetching all drafts for a league."""
+
     league_id: str
 
 @activity.defn(name="get_league_drafts")
 async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
-    # Get team owner data by username -> user_id -> all leagues for season
+    """Activity to fetch all drafts associated with a league."""
     sleeper = get_sleeper_client_manager()
 
     league_drafts = await sleeper.get_league_drafts(league_id=input.league_id)
