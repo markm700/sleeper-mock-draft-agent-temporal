@@ -1,6 +1,6 @@
 import pytest
 
-from workflows.team_owner_data_collection import (
+from ....workflows.team_owner_data_collection import (
     TeamOwnerDataCollectionWorkflow,
     TeamOwnerDataCollectionWorkflowParams,
 )

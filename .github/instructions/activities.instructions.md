@@ -31,14 +31,14 @@ import asyncio
 @activity.defn
 async def fetch_league(league_id: str) -> Dict[str, Any]:
     """Fetch league information from Sleeper API."""
-    activity.logger.info(f"Fetching league: {league_id}")
+    print(f"Fetching league: {league_id}")
     
     try:
         league_data = await asyncio.to_thread(
             _client._make_request,
             f"league/{league_id}"
         )
-        activity.logger.info(f"Successfully fetched league: {league_id}")
+        print(f"Successfully fetched league: {league_id}")
         return league_data
     except Exception as e:
         activity.logger.error(f"Failed to fetch league {league_id}: {str(e)}")
@@ -60,7 +60,7 @@ from temporalio import activity
 @activity.defn
 async def store_league(league_data: Dict[str, Any]) -> bool:
     """Store league information in database."""
-    activity.logger.info(f"Storing league: {league_data.get('league_id')}")
+    print(f"Storing league: {league_data.get('league_id')}")
     
     try:
         # TODO: Implement SQLAlchemy insert/update
@@ -69,7 +69,7 @@ async def store_league(league_data: Dict[str, Any]) -> bool:
         # session.merge(league)
         # session.commit()
         
-        activity.logger.info("League stored successfully")
+        print("League stored successfully")
         return True
     except Exception as e:
         activity.logger.error(f"Failed to store league: {str(e)}")
@@ -102,7 +102,7 @@ async def calculate_adp(params: Dict[str, Any]) -> Dict[str, Any]:
     picks = params["picks"]
     weighted = params.get("weighted", True)
     
-    activity.logger.info(f"Calculating ADP from {len(picks)} picks")
+    print(f"Calculating ADP from {len(picks)} picks")
     
     try:
         # TODO: Implement ADP calculation
@@ -112,7 +112,7 @@ async def calculate_adp(params: Dict[str, Any]) -> Dict[str, Any]:
         # - Store results in adp_cache table
         
         adp_results = {}
-        activity.logger.info(f"Calculated ADP for {len(adp_results)} players")
+        print(f"Calculated ADP for {len(adp_results)} players")
         return adp_results
     except Exception as e:
         activity.logger.error(f"Failed to calculate ADP: {str(e)}")

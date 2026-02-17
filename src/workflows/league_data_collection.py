@@ -12,7 +12,7 @@ with workflow.unsafe.imports_passed_through():
 class LeagueDataCollectionWorkflowParams:
     """Input parameters for the league data collection workflow."""
 
-    league_name: str
+    league_id: str
 
 @workflow.defn(name="league-data-collection")
 class LeagueDataCollectionWorkflow:
@@ -28,13 +28,19 @@ class LeagueDataCollectionWorkflow:
             maximum_interval=timedelta(seconds=10),
             backoff_coefficient=2.0,
         )
+        child_workflow_retry_policy = RetryPolicy(
+            maximum_attempts=3,  # 3 total attempts, 2 retries
+            initial_interval=timedelta(minutes=5),
+            maximum_interval=timedelta(minutes=10),
+            backoff_coefficient=2.0,
+        )
 
         # Get Team Owner Data Activity
         league_data = await workflow.execute_activity(
             get_league_data,
-            GetLeagueDataParams(league_name=params.league_name),
+            GetLeagueDataParams(league_id=params.league_id),
             start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_league_data-{params.league_name}",
+            activity_id=f"activity-get_league_data-{params.league_id}",
             retry_policy=activity_retry_policy,
         )
         print(f"Get League Data Activity result: {league_data}")
@@ -47,9 +53,14 @@ class LeagueDataCollectionWorkflow:
         # Child workflow for draft collection
         draft_workflow_result = await workflow.execute_child_workflow(
             DraftDataCollectionWorkflow.run,
-            DraftDataCollectionWorkflowParams(league_id=league_data["league_id"]),
+            DraftDataCollectionWorkflowParams(league_id=params.league_id),
+            id=f"child_workflow-draft_data_collection-{params.league_id}-{workflow.info().run_id}",
+            retry_policy=child_workflow_retry_policy,
+            run_timeout=timedelta(minutes=30),
+            execution_timeout=timedelta(minutes=60),
+            task_timeout=timedelta(minutes=10)
         )
-        print(f"DraftDataCollectionWorkflow result for league {league_data['league_id']}: {len(draft_workflow_result)}")
+        print(f"DraftDataCollectionWorkflow result for league {params.league_id}: {len(draft_workflow_result)}")
         workflow_activities.append({
             "workflow": "draft-data-collection",
             "result": draft_workflow_result,

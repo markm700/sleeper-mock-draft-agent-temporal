@@ -10,6 +10,7 @@ with workflow.unsafe.imports_passed_through():
     from workflows.draft_data_collection import DraftDataCollectionWorkflow
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
     from workflows.league_data_collection import LeagueDataCollectionWorkflow
+    from workflows.full_data_collection import FullDataCollectionWorkflow
     from activities.draft.get_drafts import get_league_drafts
     from activities.draft.get_draft_picks import get_specific_draft_picks
     from activities.team_owner.get_roster import get_team_owner_rosters
@@ -46,7 +47,8 @@ async def main():
                 workflows=[
                     TeamOwnerDataCollectionWorkflow,
                     LeagueDataCollectionWorkflow,
-                    DraftDataCollectionWorkflow
+                    DraftDataCollectionWorkflow,
+                    FullDataCollectionWorkflow
                 ],
                 activities=[
                     get_league_data,

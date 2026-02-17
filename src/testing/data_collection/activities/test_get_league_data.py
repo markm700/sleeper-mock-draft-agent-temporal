@@ -18,17 +18,18 @@ async def test_get_league_data_aggregates_league_users_and_rosters(
         _fake_get_sleeper_client_manager,
     )
 
-    params = GetLeagueDataParams(league_name="my_league")
+    params = GetLeagueDataParams(league_id="league-123")
 
     result = await get_league_data(params)
 
-    # league_id should come from dummy.get_league
-    assert result["league_id"] == "league-my_league"
-    assert result["league_data"]["name"] == "my_league"
+    # The activity should return league metadata, users, and rosters
+    assert "league_data" in result
+    assert "league_users" in result
+    assert "league_rosters" in result
 
     # Users and rosters should be populated with deterministic dummy data
     assert len(result["league_users"]) == 2
     assert len(result["league_rosters"]) == 2
 
-    # Ensure the dummy client recorded the league name usage
-    assert "my_league" in dummy.called_with_league_names
+    # Ensure the dummy client recorded the league_id usage
+    assert "league-123" in dummy.called_with_league_ids

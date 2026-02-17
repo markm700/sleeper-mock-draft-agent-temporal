@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Optional
 
-
 class DummySleeperClient:
     """Stub client for Sleeper API used in tests.
 
@@ -45,7 +44,7 @@ class DummySleeperClient:
     # League Data
     async def get_league(self, league_name: str) -> Dict[str, Any]:
         self.called_with_league_names.append(league_name)
-        # Map league_name to a deterministic fake league_id
+        # Map league_name (or league_id passed positionally) to a deterministic fake league_id
         league_id = f"league-{league_name}"
         return {
             "league_id": league_id,
@@ -53,12 +52,28 @@ class DummySleeperClient:
             "season": "2024",
         }
 
-    async def get_league_users(self, league_name: str) -> List[Dict[str, Any]]:
-        self.called_with_league_names.append(league_name)
-        # Two fake users associated with the league name
+    async def get_league_users(
+        self,
+        league_name: Optional[str] = None,
+        league_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return fake league users.
+
+        Supports both call styles used by activities:
+        - by league_name (historical behavior)
+        - by league_id (current activities)
+        """
+        if league_id is not None:
+            self.called_with_league_ids.append(league_id)
+            league_key = league_id
+        else:
+            league_key = league_name or "unknown"
+            self.called_with_league_names.append(league_key)
+
+        # Two fake users associated with the league identifier
         return [
-            {"user_id": "user_1", "display_name": f"owner_1_{league_name}"},
-            {"user_id": "user_2", "display_name": f"owner_2_{league_name}"},
+            {"user_id": "user_1", "display_name": f"owner_1_{league_key}"},
+            {"user_id": "user_2", "display_name": f"owner_2_{league_key}"},
         ]
 
     async def get_league_rosters(self, league_name: Optional[str] = None, league_id: Optional[str] = None
@@ -68,6 +83,8 @@ class DummySleeperClient:
             self.called_with_league_names.append(league_name)
             league_key = league_name
         else:
+            if league_id is not None:
+                self.called_with_league_ids.append(league_id)
             league_key = league_id or "unknown"
 
         return [

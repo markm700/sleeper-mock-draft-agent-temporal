@@ -1,6 +1,6 @@
 import pytest
 
-from workflows.draft_data_collection import (
+from ....workflows.draft_data_collection import (
     DraftDataCollectionWorkflow,
     DraftDataCollectionWorkflowParams,
 )

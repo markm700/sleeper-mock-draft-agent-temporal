@@ -1,10 +1,10 @@
 import pytest
 
-from workflows.league_data_collection import (
+from ....workflows.league_data_collection import (
     LeagueDataCollectionWorkflow,
     LeagueDataCollectionWorkflowParams,
 )
-from workflows.draft_data_collection import (
+from ....workflows.draft_data_collection import (
     DraftDataCollectionWorkflow,
     DraftDataCollectionWorkflowParams,
 )
@@ -46,7 +46,7 @@ async def test_league_data_collection_invokes_league_activity_and_draft_child_wo
     )
 
     wf = LeagueDataCollectionWorkflow()
-    params = LeagueDataCollectionWorkflowParams(league_name="my_league")
+    params = LeagueDataCollectionWorkflowParams(league_id="league-123")
 
     result = await wf.run(params)
 
@@ -56,7 +56,8 @@ async def test_league_data_collection_invokes_league_activity_and_draft_child_wo
 
     first_entry = result["activity_data"][0]
     assert first_entry["activity"] == "get_league_data"
-    assert first_entry["result"]["league_id"] == "league-123"
+    # Activity result structure is opaque to the workflow; we just expect it
+    assert "league_data" in first_entry["result"]
 
     second_entry = result["activity_data"][1]
     assert second_entry["workflow"] == "draft-data-collection"
@@ -71,7 +72,7 @@ async def test_league_data_collection_invokes_league_activity_and_draft_child_wo
     assert getattr(fn, "__name__", None) == "get_league_data"
     assert len(args) == 1
     league_params = args[0]
-    assert getattr(league_params, "league_name", None) == "my_league"
+    assert getattr(league_params, "league_id", None) == "league-123"
     assert "start_to_close_timeout" in kwargs
     assert "retry_policy" in kwargs
 

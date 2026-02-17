@@ -18,7 +18,7 @@ When working with Temporal workflows in this project:
 - Workflows MUST be deterministic
 - Import non-deterministic modules inside `workflow.unsafe.imports_passed_through()`
 - NEVER make direct API calls, database queries, or use `datetime.now()` in workflows
-- Use `workflow.logger` for logging (NEVER standard Python logging)
+- Use print() for logging
 
 ## Activity Execution
 

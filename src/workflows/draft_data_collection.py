@@ -53,11 +53,12 @@ class DraftDataCollectionWorkflow:
         })
 
         # Get Draft Pick Trades Data Activity
+        draft_id = draft_data["league_drafts"][0]["draft_id"]
         draft_pick_trades = await workflow.execute_activity(
             get_specific_draft_picks,
-            GetSpecificDraftPicksParams(league_id=params.league_id),
+            GetSpecificDraftPicksParams(draft_id=draft_id),
             start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_specific_draft_picks-{params.league_id}",
+            activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}",
             retry_policy=activity_retry_policy,
         )
         workflow.logger.info(f"Get Specific Draft Picks Activity result: {draft_pick_trades}")

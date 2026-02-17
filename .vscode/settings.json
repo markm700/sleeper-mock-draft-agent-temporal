@@ -3,5 +3,6 @@
         "markdown": true,
         "plaintext": true
     },
-    "github.copilot.chat.codeGeneration.useInstructionFiles": true
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "makefile.configureOnOpen": false
 }
