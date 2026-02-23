@@ -4,6 +4,8 @@ applyTo: "src/utils/**/*.py"
 
 # Utility Module Instructions
 
+> **Note**: This directory and these patterns are for future implementation.
+
 ## Configuration (`config.py`)
 
 ### Core Patterns
@@ -61,18 +63,30 @@ def get_config() -> Config:
     return _config
 ```
 
-## Logging (`logging.py`)
+## Logging Patterns
 
-### Core Patterns
+### Current Practice
 
-- Centralized `setup_logging()` function
-- Structured format: `timestamp | level | name | message`
-- Use `StreamHandler` for stdout (no file logging)
-- Configure via `LOG_LEVEL` environment variable
-- Set Temporal SDK logs to INFO to reduce noise
+- **In workflows**: Use `print()` for logging (workflow.logger is deprecated in newer Temporal versions)
+- **In activities**: Use `print()` for logging (simpler than activity.logger)
+- **In regular modules**: Use Python's standard `logging.getLogger(__name__)`
 
-### Usage
+### Future Implementation (`logging.py`)
 
-- Use `logging.getLogger(__name__)` in regular modules
-- Use `workflow.logger` in workflows
-- Use `activity.logger` in activities
+When centralized logging configuration is needed:
+
+```python
+import logging
+import sys
+
+def setup_logging(level: str = "INFO") -> None:
+    """Configure structured logging for application."""
+    logging.basicConfig(
+        level=getattr(logging, level.upper()),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)]
+    )
+    
+    # Reduce Temporal SDK noise
+    logging.getLogger("temporalio").setLevel(logging.INFO)
+```

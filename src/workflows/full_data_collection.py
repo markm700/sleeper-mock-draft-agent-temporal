@@ -4,6 +4,9 @@ from typing import Any, Dict, Optional
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
+with workflow.unsafe.imports_passed_through():
+    from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow, TeamOwnerDataCollectionWorkflowParams
+    from workflows.league_data_collection import LeagueDataCollectionWorkflow, LeagueDataCollectionWorkflowParams
 
 def _safe_slug(text: str | None) -> str:
     """Create a simple, deterministic slug for workflow IDs.
@@ -22,18 +25,6 @@ def _safe_slug(text: str | None) -> str:
             cleaned.append("_")
     slug = "".join(cleaned).strip("_")
     return slug or "value"
-
-
-with workflow.unsafe.imports_passed_through():
-    from workflows.team_owner_data_collection import (
-        TeamOwnerDataCollectionWorkflow,
-        TeamOwnerDataCollectionWorkflowParams,
-    )
-    from workflows.league_data_collection import (
-        LeagueDataCollectionWorkflow,
-        LeagueDataCollectionWorkflowParams,
-    )
-
 
 @dataclass
 class FullDataCollectionWorkflowParams:
@@ -59,6 +50,7 @@ class FullDataCollectionWorkflow:
 
     @workflow.run
     async def run(self, params: FullDataCollectionWorkflowParams) -> Dict[str, Any]:
+        wf_hex = workflow.info().run_id[-4:]
         child_workflow_results: list[Dict[str, Any]] = []
         child_retry_policy = RetryPolicy(
             maximum_attempts=3,
@@ -74,7 +66,7 @@ class FullDataCollectionWorkflow:
                 username=params.username,
                 league_name=params.league_name,
             ),
-            id=f"child_workflow-team_owner_data_collection-{params.username}-{_safe_slug(params.league_name)}-{workflow.info().run_id}",
+            id=f"child_workflow-team_owner_data_collection-{params.username}-{_safe_slug(params.league_name)}-{wf_hex}",
             retry_policy=child_retry_policy,
             run_timeout=timedelta(minutes=30),
             execution_timeout=timedelta(minutes=60),
@@ -120,7 +112,7 @@ class FullDataCollectionWorkflow:
         league_result: Dict[str, Any] = await workflow.execute_child_workflow(
             LeagueDataCollectionWorkflow.run,
             LeagueDataCollectionWorkflowParams(league_id=league_id),
-            id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{league_id}-{workflow.info().run_id}",
+            id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{league_id}-{wf_hex}",
             retry_policy=child_retry_policy,
             run_timeout=timedelta(minutes=30),
             execution_timeout=timedelta(minutes=60),

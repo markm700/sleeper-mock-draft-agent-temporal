@@ -5,40 +5,41 @@ description: Integrate with new external APIs. Use when asked to add support for
 
 # API Integration
 
+> **Note**: This skill is for future implementation when adding support for additional fantasy football platforms beyond Sleeper.
+
 Use this skill to integrate with new external APIs following project conventions.
 
-## Steps
+## Current Implementation
 
-1. **Create new activity file** at `src/activities/{api_name}_client.py`
+The project currently uses httpx AsyncClient for Sleeper API integration. See `src/activities/clients/sleeper_client_credential.py` for reference implementation.
 
-2. **Create API client class** with singleton pattern
+## Steps for New API Integration
 
-3. **Define activity functions** for each API endpoint
+1. **Create new client file** at `src/activities/clients/{api_name}_client.py`
 
-4. **Add configuration** to `src/utils/config.py`
+2. **Create API client class** with singleton pattern using httpx AsyncClient
 
-5. **Create API response models** in `src/models/api_models.py`
+3. **Define activity functions** for each API endpoint in `src/activities/{api_name}/`
 
-## API Client Template
+4. **Add configuration** (API keys, base URLs) to environment variables
+
+5. **Create parameter dataclasses** for activities
+
+## API Client Template (using httpx)
 
 ```python
 """
 {API Name} API client activities.
 
-Provides Temporal activities for interacting with {API Name} API.
+Provides async client for interacting with {API Name} API.
 """
 
-import requests
-import asyncio
+import httpx
 from typing import Dict, List, Any, Optional
-from temporalio import activity
-
-from src.utils.config import get_config
-
 
 class {API}Client:
     """
-    Singleton client for {API Name} API.
+    Singleton async client for {API Name} API.
     
     Handles authentication, rate limiting, and request execution.
     """
@@ -53,51 +54,44 @@ class {API}Client:
     
     def _initialize(self):
         """Initialize the API client."""
-        config = get_config()
-        self.base_url = config.{api}_base_url
-        self.api_key = config.{api}_api_key
-        self.session = requests.Session()
+        self.base_url = "https://api.{api_name}.com/v1"
+        self.timeout = 30
         
-        # Set default headers
-        self.session.headers.update({
-            "Accept": "application/json",
-            "User-Agent": "sleeper-mock-draft-agent/1.0",
-        })
-        
-        # Add authentication if required
-        if self.api_key:
-            self.session.headers.update({
-                "Authorization": f"Bearer {self.api_key}"
-            })
+        # Create AsyncClient
+        self.client = httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=self.timeout,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "sleeper-mock-draft-agent/1.0",
+                # Add API key if needed:
+                # "Authorization": f"Bearer {api_key}"
+            }
+        )
     
-    def _make_request(
-        self,
-        endpoint: str,
-        method: str = "GET",
-        params: Optional[Dict[str, Any]] = None,
-        json: Optional[Dict[str, Any]] = None,
-    ) -> Any:
+    async def get_{resource}(self, resource_id: str) -> Dict[str, Any]:
         """
-        Make HTTP request to API.
+        Fetch {resource} from API.
         
         Args:
-            endpoint: API endpoint path (without base URL)
-            method: HTTP method (GET, POST, PUT, DELETE)
-            params: Query parameters
-            json: JSON body for POST/PUT requests
+            resource_id: ID of the resource to fetch
             
         Returns:
-            Response data (dict or list)
+            Resource data as dictionary
             
         Raises:
-            requests.HTTPError: If request fails
+            httpx.HTTPError: If request fails
         """
-        url = f"{self.base_url}/{endpoint}"
-        
-        response = self.session.request(
-            method=method,
-            url=url,
-            params=params,
+        response = await self.client.get(f"/{resource}/{resource_id}")
+        response.raise_for_status()
+        return response.json()
+
+
+# Singleton accessor
+def get_{api}_client_manager() -> {API}Client:
+    """Get singleton instance of {API}Client."""
+    return {API}Client()
+```
             json=json,
             timeout=30,
         )

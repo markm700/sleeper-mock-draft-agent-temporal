@@ -22,6 +22,7 @@ class TeamOwnerDataCollectionWorkflow:
     @workflow.run
     async def run(self, params: TeamOwnerDataCollectionWorkflowParams) -> Dict[str, Any]:
         """Execute the team owner data collection workflow."""
+        wf_hex = workflow.info().run_id[-4:]
         workflow_activities = []
         activity_retry_policy = RetryPolicy(
             maximum_attempts=3,  # 3 total attempts, 2 retries
@@ -35,10 +36,10 @@ class TeamOwnerDataCollectionWorkflow:
             get_team_owner_data,
             GetTeamOwnerDataParams(username=params.username, league_name=params.league_name),
             start_to_close_timeout=timedelta(seconds=10),
-            activity_id=f"activity-get_team_owner_data-{params.username}-{params.league_name}",
+            activity_id=f"activity-get_team_owner_data-{params.username}-{params.league_name}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        workflow.logger.info(f"Get Team Owner Data Activity result: {team_owner_data}")
+        print(f"Get Team Owner Data Activity result: {team_owner_data}")
         workflow_activities.append({
             "activity": "get_team_owner_data",
             "result": team_owner_data
@@ -59,11 +60,11 @@ class TeamOwnerDataCollectionWorkflow:
                     GetLeagueRosterParams(league_id=league_id, user_id=team_owner_data["user_id"]),
                     start_to_close_timeout=timedelta(seconds=10),
                     activity_id=(
-                        f"activity-get_team_owner_rosters-{params.username}-{params.league_name}-{season}_season"
+                        f"activity-get_team_owner_rosters-{params.username}-{params.league_name}-{season}_season-{wf_hex}"
                     ),
                     retry_policy=activity_retry_policy,
                 )
-                workflow.logger.info(
+                print(
                     f"Get Team Owner {params.username} Roster Activity for league {league_id} {season} season: {team_owner_roster}"
                 )
                 owner_league_rosters.append({

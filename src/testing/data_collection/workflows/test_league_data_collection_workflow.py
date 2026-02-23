@@ -23,7 +23,7 @@ async def test_league_data_collection_invokes_league_activity_and_draft_child_wo
         if getattr(fn, "__name__", None) == "get_league_data":
             return {
                 "league_id": "league-123",
-                "league_data": {"name": "my_league"},
+                "league_data": {"name": "my_league", "season": "2024"},
                 "league_users": [],
                 "league_rosters": [],
             }
@@ -85,4 +85,5 @@ async def test_league_data_collection_invokes_league_activity_and_draft_child_wo
     draft_params = child_args[0]
     assert isinstance(draft_params, DraftDataCollectionWorkflowParams)
     assert draft_params.league_id == "league-123"
+    assert draft_params.season == "2024"  # Verify season from league_data is passed
     assert child_kwargs == {}

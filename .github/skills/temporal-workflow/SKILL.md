@@ -15,104 +15,161 @@ Use this skill to create a new Temporal workflow that follows project convention
    - `{WorkflowName}Input` - workflow parameters
    - `{WorkflowName}Result` - workflow return value
 
-3. **Import activities** inside `workflow.unsafe.imports_passed_through()` context
+3. **Import activities** inside `workflow.unsafe.imports_passed_through()` using relative imports
 
-4. **Create workflow class** with `@workflow.defn` decorator
+4. **Create workflow class** with `@workflow.defn(name="...")` decorator with explicit name
 
 5. **Implement `@workflow.run` method** that:
    - Accepts input dataclass
-   - Returns result dataclass
-   - Calls activities via `workflow.execute_activity()`
+   - Returns `Dict[str, Any]`
+   - Calls activities via `workflow.execute_activity(name, params, ...)`
    - Specifies `start_to_close_timeout` and `retry_policy` for each activity
-   - Uses `workflow.logger` for logging
+   - Uses `print()` for logging (workflow.logger deprecated in newer Temporal)
    - Handles errors gracefully
 
-6. **Export workflow** in `src/workflows/__init__.py` by adding to `__all__` list
-
-## Example Template
+## Example: Simple Workflow
 
 ```python
 from temporalio import workflow
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import Dict, Any
 
 with workflow.unsafe.imports_passed_through():
-    from src.activities.database import fetch_data, store_results
-    from src.activities.api_client import fetch_external_data
+    from activities.draft.get_drafts import GetLeagueDraftsParams
 
 @dataclass
-class {WorkflowName}Input:
-    """Input parameters for {WorkflowName}"""
-    # Add required fields
+class DraftDataCollectionParams:
+    """Input parameters for DraftDataCollectionWorkflow"""
     league_id: str
-    season: str
-    # Add optional fields with defaults
-    include_history: bool = False
+    season: str = "2025"
 
-@dataclass
-class {WorkflowName}Result:
-    """Result from {WorkflowName}"""
-    success: bool
-    errors: list[str]
-    # Add additional result fields
-    records_processed: int = 0
-
-@workflow.defn
-class {WorkflowName}:
+@workflow.defn(name="draft_data_collection_workflow")
+class DraftDataCollectionWorkflow:
     """
-    Brief description of what this workflow does.
+    Collect all draft-related data for a league.
     
-    Typical use case and behavior details.
+    Fetches draft metadata and pick details.
     """
     
     @workflow.run
-    async def run(self, input_data: {WorkflowName}Input) -> {WorkflowName}Result:
-        workflow.logger.info(f"Starting {WorkflowName} for league {input_data.league_id}")
-        errors = []
+    async def run(self, input: DraftDataCollectionParams) -> Dict[str, Any]:
+        print(f"Starting draft data collection for league {input.league_id}")
         
-        try:
-            # Step 1: Fetch data
-            data = await workflow.execute_activity(
-                fetch_data,
-                input_data.league_id,
-                start_to_close_timeout=timedelta(seconds=30),
-                retry_policy=workflow.RetryPolicy(
-                    maximum_attempts=3,
-                    initial_interval=timedelta(seconds=1),
-                    maximum_interval=timedelta(seconds=10),
-                    backoff_coefficient=2.0,
-                ),
-            )
-            
-            # Step 2: Process data
-            results = await workflow.execute_activity(
-                process_data,
-                {"data": data, "options": input_data.include_history},
-                start_to_close_timeout=timedelta(seconds=60),
-            )
-            
-            # Step 3: Store results
-            await workflow.execute_activity(
-                store_results,
-                results,
-                start_to_close_timeout=timedelta(seconds=30),
-            )
-            
-            workflow.logger.info(f"Completed {WorkflowName} successfully")
-            return {WorkflowName}Result(
-                success=True,
-                errors=errors,
-                records_processed=len(results)
-            )
-            
-        except Exception as e:
-            workflow.logger.error(f"{WorkflowName} failed: {str(e)}")
-            errors.append(str(e))
-            return {WorkflowName}Result(
-                success=False,
-                errors=errors,
-                records_processed=0
-            )
+        # Fetch league drafts
+        drafts_result = await workflow.execute_activity(
+            "get_league_drafts",
+            GetLeagueDraftsParams(league_id=input.league_id),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=workflow.RetryPolicy(
+                maximum_attempts=3,
+                initial_interval=timedelta(seconds=1),
+                maximum_interval=timedelta(seconds=10),
+                backoff_coefficient=2.0,
+            ),
+        )
+        
+        league_drafts = drafts_result["league_drafts"]
+        print(f"Fetched {len(league_drafts)} drafts")
+        
+        return {
+            "drafts": league_drafts,
+            "success": True
+        }
+```
+
+## Example: Workflow with Child Workflows
+
+```python
+from temporalio import workflow
+from dataclasses import dataclass
+from datetime import timedelta
+from typing import Dict, Any
+
+with workflow.unsafe.imports_passed_through():
+    from workflows.league_data_collection import (
+        LeagueDataCollectionParams,
+        LeagueDataCollectionWorkflow
+    )
+    from workflows.draft_data_collection import (
+        DraftDataCollectionParams,
+        DraftDataCollectionWorkflow
+    )
+
+@dataclass
+class FullDataCollectionParams:
+    """Input parameters for full data collection"""
+    username: str
+    league_name: str
+    season: str = "2025"
+
+@workflow.defn(name="full_data_collection_workflow")
+class FullDataCollectionWorkflow:
+    """
+    Comprehensive data collection for user and league.
+    
+    Orchestrates league and draft data collection as child workflows.
+    """
+    
+    @workflow.run
+    async def run(self, input: FullDataCollectionParams) -> Dict[str, Any]:
+        print(f"Starting full data collection for {input.username}")
+        
+        # Execute league data collection child workflow
+        l@workflow.defn(name="...")` with explicit workflow name
+- ✅ Use `workflow.execute_activity(name, params, ...)` for ALL external interactions
+- ✅ Pass activity parameters as dataclass instances
+- ✅ Use `print()` for logging (workflow.logger deprecated in newer Temporal versions)
+- ✅ Import activities/other workflows with relative imports (e.g., `from activities.draft.get_drafts import...`)
+- ✅ Import non-deterministic modules inside `workflow.unsafe.imports_passed_through()`
+- ❌ NEVER make direct API calls or database queries in workflows
+- ❌ NEVER use `datetime.now()` or random numbers in workflows
+- ❌ NEVER use blocking I/O in workflows
+
+## After Creation
+
+### 1. Register in Worker
+
+Add workflow to `src/workers/workflow_worker.py`:
+
+```python
+with workflow.unsafe.imports_passed_through():
+    from src.workflows.draft_data_collection import DraftDataCollectionWorkflow
+    # Add new workflow import
+
+worker = Worker(
+    client,
+    task_queue=temporal_task_queue,
+    workflows=[
+        DraftDataCollectionWorkflow,
+        # Add new workflow here
+    ],
+    activities=[...],
+)
+```
+
+### 2. Package Markers
+
+Ensure `src/workflows/__init__.py` contains only a docstring (no imports or `__all__`):
+
+```python
+"""Temporal workflows for orchestrating data collection and analysis."""
+```
+
+### 3. Import Patterns
+
+- **In workflows**: use relative imports (e.g., `from activities.draft.get_drafts import...`)
+- **In worker registration**: use absolute `src.` imports (e.g., `from src.workflows.draft_data_collection import...`)_id']}",
+            task_queue="temporal-task-queue",
+        )
+        
+        print("Completed full data collection")
+        
+        return {
+            "league_data": league_data,
+            "draft_data": draft_result,
+            "success": True
+        }
 ```
 
 ## Critical Rules
