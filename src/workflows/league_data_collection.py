@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -36,31 +37,31 @@ class LeagueDataCollectionWorkflow:
         )
 
         # Get Team Owner Data Activity
-        league_data = await workflow.execute_activity(
+        league_info = await workflow.execute_activity(
             get_league_data,
             GetLeagueDataParams(league_id=params.league_id),
             start_to_close_timeout=timedelta(seconds=30),
             activity_id=f"activity-get_league_data-{params.league_id}",
             retry_policy=activity_retry_policy,
         )
-        print(f"Get League Data Activity result: {league_data}")
+        print(f"League Data Activity result: Total Users {len(league_info['league_users'])}, Total Teams {len(league_info['league_rosters'])}")
         workflow_activities.append({
             "activity": "get_league_data",
-            "result": league_data
+            "result": league_info
         })
 
-        # all league's seasons
         # Child workflow for draft collection
+        season = league_info["league_data"]["season"]
         draft_workflow_result = await workflow.execute_child_workflow(
             DraftDataCollectionWorkflow.run,
-            DraftDataCollectionWorkflowParams(league_id=params.league_id),
-            id=f"child_workflow-draft_data_collection-{params.league_id}-{workflow.info().run_id}",
+            DraftDataCollectionWorkflowParams(league_id=params.league_id,season=season),
+            id=f"child_workflow-draft_data_collection-{params.league_id}-{season}-{os.urandom(4).hex()}",
             retry_policy=child_workflow_retry_policy,
             run_timeout=timedelta(minutes=30),
             execution_timeout=timedelta(minutes=60),
             task_timeout=timedelta(minutes=10)
         )
-        print(f"DraftDataCollectionWorkflow result for league {params.league_id}: {len(draft_workflow_result)}")
+        print(f"DraftDataCollectionWorkflow result for league {params.league_id}, {season} season: {len(draft_workflow_result)}")
         workflow_activities.append({
             "workflow": "draft-data-collection",
             "result": draft_workflow_result,
@@ -69,5 +70,5 @@ class LeagueDataCollectionWorkflow:
 
         # Return Activity Data and Workflow Output
         return {
-            "activity_data": workflow_activities,
+            "activity_data": workflow_activities
         }

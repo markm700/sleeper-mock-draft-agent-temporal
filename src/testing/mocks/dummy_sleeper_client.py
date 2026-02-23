@@ -41,6 +41,40 @@ class DummySleeperClient:
             },
         ]
 
+    async def get_traded_draft_picks(self, league_id: str) -> List[Dict[str, Any]]:
+        self.called_with_league_ids.append(league_id)
+        # Return traded picks from multiple seasons to test filtering
+        return [
+            {
+                "season": "2024",
+                "round": 1,
+                "roster_id": 2,
+                "previous_owner_id": 1,
+                "owner_id": 2,
+            },
+            {
+                "season": "2025",
+                "round": 2,
+                "roster_id": 1,
+                "previous_owner_id": 2,
+                "owner_id": 1,
+            },
+            {
+                "season": "2025",
+                "round": 3,
+                "roster_id": 2,
+                "previous_owner_id": 1,
+                "owner_id": 2,
+            },
+            {
+                "season": "2026",
+                "round": 1,
+                "roster_id": 1,
+                "previous_owner_id": 2,
+                "owner_id": 1,
+            },
+        ]
+
     # League Data
     async def get_league(self, league_name: str) -> Dict[str, Any]:
         self.called_with_league_names.append(league_name)

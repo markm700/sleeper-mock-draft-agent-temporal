@@ -38,7 +38,7 @@ class TeamOwnerDataCollectionWorkflow:
             activity_id=f"activity-get_team_owner_data-{params.username}-{params.league_name}",
             retry_policy=activity_retry_policy,
         )
-        workflow.logger.info(f"Get Team Owner Data Activity result: {team_owner_data}")
+        print(f"Get Team Owner Data Activity result: {team_owner_data}")
         workflow_activities.append({
             "activity": "get_team_owner_data",
             "result": team_owner_data
@@ -63,7 +63,7 @@ class TeamOwnerDataCollectionWorkflow:
                     ),
                     retry_policy=activity_retry_policy,
                 )
-                workflow.logger.info(
+                print(
                     f"Get Team Owner {params.username} Roster Activity for league {league_id} {season} season: {team_owner_roster}"
                 )
                 owner_league_rosters.append({

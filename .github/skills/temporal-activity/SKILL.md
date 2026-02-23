@@ -11,91 +11,116 @@ Use this skill to create new Temporal activities that follow project conventions
 
 Choose the appropriate pattern based on the activity's purpose:
 
-### 1. API Activities (`src/activities/api_client.py` or new file)
+### 1. Sleeper API Activities (e.g., `src/activities/draft/get_drafts.py`)
 
-For external API calls (Sleeper API or other APIs).
+For Sleeper API calls using httpx AsyncClient.
 
 ```python
-from temporalio import activity
-import asyncio
-from typing import Dict, List, Any
+from dataclasses import dataclass
+from typing import Dict, Any
+from temporalio import activity, workflow
 
-@activity.defn
-async def fetch_{resource}(resource_id: str) -> Dict[str, Any]:
-    """Fetch {resource} from external API."""
-    activity.logger.info(f"Fetching {resource}: {resource_id}")
+with workflow.unsafe.imports_passed_through():
+    from activities.clients.sleeper_client_credential import get_sleeper_client_manager
+
+@dataclass
+class GetLeagueDraftsParams:
+    """Parameters for fetching all drafts for a league."""
+    league_id: str
+
+@activity.defn(name="get_league_drafts")
+async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
+    """Activity to fetch all drafts associated with a league."""
+    sleeper = get_sleeper_client_manager()
     
     try:
-        # Use asyncio.to_thread for synchronous requests
-        data = await asyncio.to_thread(
-            _client._make_request,
-            f"{resource}/{resource_id}"
-        )
-        activity.logger.info(f"Successfully fetched {resource}: {resource_id}")
-        return data
+        league_drafts = await sleeper.get_league_drafts(league_id=input.league_id)
+        print(f"Successfully fetched {len(league_drafts)} drafts for league {input.league_id}")
+        return {"league_drafts": league_drafts}
     except Exception as e:
-        activity.logger.error(f"Failed to fetch {resource} {resource_id}: {str(e)}")
+        print(f"Failed to fetch league drafts {input.league_id}: {str(e)}")
         raise
 ```
 
-**Key points for API activities**:
-- Wrap sync requests with `await asyncio.to_thread()`
-- Use singleton client with `requests.Session()`
-- Specify `timeout=30` on HTTP requests
-- Return `Dict[str, Any]` for single resources, `List[Dict[str, Any]]` for collections
+**Key points for Sleeper API activities**:
+- Use `@dataclass` for parameters with explicit type hints
+- Use `get_sleeper_client_manager()` singleton for httpx AsyncClient
+- All Sleeper API methods are already async (NO need for asyncio.to_thread)
+- Use `print()` for logging (simpler than activity.logger)
+- Return wrapped in dict with descriptive key
+- Use `@activity.defn(name="...")` to explicitly name activities
 
-### 2. Database Activities (`src/activities/database.py`)
+### 2. Activities with Filtering/Processing
+
+Activities can include business logic like filtering:
+
+```python
+@dataclass
+class GetTradedDraftPicksParams:
+    """Parameters for fetching traded picks for a league."""
+    league_id: str
+    season: str = "2025"
+
+@activity.defn(name="get_traded_draft_picks")
+async def get_traded_draft_picks(input: GetTradedDraftPicksParams) -> Dict[str, Any]:
+    """Activity to fetch all traded draft picks for a given league, filtered by season."""
+    sleeper = get_sleeper_client_manager()
+    
+    try:
+        all_traded_picks = await sleeper.get_traded_draft_picks(league_id=input.league_id)
+        
+        # Filter traded picks by season
+        filtered_picks = [
+            pick for pick in all_traded_picks
+            if pick.get("season") == input.season
+        ]
+        
+        print(f"Fetched {len(filtered_picks)} traded picks for season {input.season}")
+        return {"traded_draft_picks": filtered_picks}
+    except Exception as e:
+        print(f"Failed to fetch traded picks: {str(e)}")
+        raise
+```
+
+### 3. Database Activities (Future Implementation)
 
 For database CRUD operations using SQLAlchemy ORM.
 
 ```python
 from temporalio import activity
-from typing import Dict, List, Any
+from typing import Dict, Any
 
-@activity.defn
-async def store_{entity}(data: Dict[str, Any]) -> bool:
-    """Store {entity} in database."""
-    activity.logger.info(f"Storing {entity}: {data.get('id')}")
+@dataclass
+class StoreLeagueParams:
+    """Parameters for storing league data."""
+    league_data: Dict[str, Any]
+
+@activity.defn(name="store_league")
+async def store_league(input: StoreLeagueParams) -> bool:
+    """Store league information in database."""
+    print(f"Storing league: {input.league_data.get('league_id')}")
     
     try:
         # TODO: Implement SQLAlchemy insert/update
         # session = get_db_session()
-        # entity = {Entity}(**data)
-        # session.merge(entity)
+        # league = League(**input.league_data)
+        # session.merge(league)
         # session.commit()
         
-        activity.logger.info("{Entity} stored successfully")
+        print("League stored successfully")
         return True
     except Exception as e:
-        activity.logger.error(f"Failed to store {entity}: {str(e)}")
-        raise
-
-@activity.defn
-async def fetch_{entity}(entity_id: str) -> Dict[str, Any]:
-    """Fetch {entity} from database."""
-    activity.logger.info(f"Fetching {entity}: {entity_id}")
-    
-    try:
-        # TODO: Query database
-        # session = get_db_session()
-        # entity = session.query({Entity}).filter_by(id=entity_id).first()
-        # return entity.to_dict()
-        
-        data = {}
-        activity.logger.info("{Entity} fetched successfully")
-        return data
-    except Exception as e:
-        activity.logger.error(f"Failed to fetch {entity}: {str(e)}")
+        print(f"Failed to store league: {str(e)}")
         raise
 ```
 
 **Key points for database activities**:
 - Store functions return `bool`
-- Fetch functions return `Dict[str, Any]` or `List[Dict[str, Any]]`
+- Fetch functions return `Dict[str, Any]`
 - Include TODO comments for SQLAlchemy implementation
 - NEVER perform database operations in workflows
 
-### 3. ML Activities (`src/activities/ml_models.py`)
+### 4. ML Activities (Future Implementation)
 
 For machine learning operations, analysis, and computations.
 
@@ -103,40 +128,42 @@ For machine learning operations, analysis, and computations.
 from temporalio import activity
 from typing import Dict, Any
 
-@activity.defn
-async def calculate_{metric}(params: Dict[str, Any]) -> Dict[str, Any]:
+@dataclass
+class CalculateADPParams:
+    """Parameters for ADP calculation."""
+    picks: list[Dict[str, Any]]
+    weighted: bool = True
+
+@activity.defn(name="calculate_adp")
+async def calculate_adp(input: CalculateADPParams) -> Dict[str, Any]:
     """
-    Calculate {metric} for analysis.
+    Calculate Average Draft Position weighted by recency.
     
     Args:
-        params: Dict containing input data and configuration
-            - data: Input data to analyze
-            - options: Configuration options
+        input: Parameters containing picks and weighting flag
         
     Returns:
-        Results dictionary with calculated metrics
+        ADP data for each player
     """
-    input_data = params["data"]
-    options = params.get("options", {})
-    
-    activity.logger.info(f"Calculating {metric} for {len(input_data)} records")
+    print(f"Calculating ADP from {len(input.picks)} picks")
     
     try:
-        # TODO: Implement calculation
-        # - Step 1: Prepare data
-        # - Step 2: Apply algorithm
-        # - Step 3: Format results
+        # TODO: Implement ADP calculation
+        # - Group picks by player_id
+        # - Calculate mean, std_dev, sample_size
+        # - Apply exponential decay weighting (factor 0.7) if weighted=True
+        # - Store results in adp_cache table
         
-        results = {}
-        activity.logger.info(f"Calculated {metric} successfully")
-        return results
+        adp_results = {}
+        print(f"Calculated ADP for {len(adp_results)} players")
+        return {"adp_data": adp_results}
     except Exception as e:
-        activity.logger.error(f"Failed to calculate {metric}: {str(e)}")
+        print(f"Failed to calculate ADP: {str(e)}")
         raise
 ```
 
 **Key points for ML activities**:
-- Accept dict parameters: `params: Dict[str, Any]`
+- Use dataclass parameters with meaningful names
 - Include detailed docstrings explaining algorithms
 - Use TODO comments for multi-step algorithm documentation
 - Include business context (e.g., "recency weighting factor 0.7")
@@ -145,42 +172,74 @@ async def calculate_{metric}(params: Dict[str, Any]) -> Dict[str, Any]:
 
 All activities must:
 
-- ✅ Use `@activity.defn` decorator
+- ✅ Use `@activity.defn(name="...")` decorator with explicit name
 - ✅ Be `async def` functions
-- ✅ Use `activity.logger` for logging (NEVER standard logging)
+- ✅ Use `print()` for logging (simpler than activity.logger)
+- ✅ Use `@dataclass` for parameters
 - ✅ Include try/except with error logging before raising
 - ✅ Have type hints for parameters and return values
 - ✅ Have descriptive docstrings
+- ✅ Return wrapped in dict with descriptive key (e.g., `{"league_data": ...}`)
 
 ## After Creation
 
-If creating activities in a new file:
+### 1. Register in Worker
 
-1. Add to `src/activities/__init__.py`:
-   ```python
-   __all__ = [
-       "existing_activity",
-       "new_activity",  # Add new activity
-   ]
-   ```
+Add to `src/workers/workflow_worker.py`:
 
-2. Import in workflows using `workflow.unsafe.imports_passed_through()`:
-   ```python
-   with workflow.unsafe.imports_passed_through():
-       from src.activities.my_activities import new_activity
-   ```
+```python
+with workflow.unsafe.imports_passed_through():
+    from src.activities.draft.get_drafts import get_league_drafts
+    from src.activities.draft.get_traded_draft_picks import get_traded_draft_picks
+    # Add new activity import
 
-3. Call from workflows with timeouts and retry policies:
-   ```python
-   result = await workflow.execute_activity(
-       new_activity,
-       params,
-       start_to_close_timeout=timedelta(seconds=30),
-       retry_policy=workflow.RetryPolicy(
-           maximum_attempts=3,
-           initial_interval=timedelta(seconds=1),
-           maximum_interval=timedelta(seconds=10),
-           backoff_coefficient=2.0,
-       ),
-   )
-   ```
+worker = Worker(
+    client,
+    task_queue=temporal_task_queue,
+    workflows=[...],
+    activities=[
+        get_league_drafts,
+        get_traded_draft_picks,
+        # Add new activity here
+    ],
+)
+```
+
+### 2. Call from Workflows
+
+Import activities using relative imports in workflows:
+
+```python
+from temporalio import workflow
+from datetime import timedelta
+from dataclasses import dataclass
+
+with workflow.unsafe.imports_passed_through():
+    from activities.draft.get_drafts import GetLeagueDraftsParams
+
+@workflow.defn(name="my_workflow")
+class MyWorkflow:
+    @workflow.run
+    async def run(self, input: MyWorkflowParams) -> Dict[str, Any]:
+        # Call activity with timeout and retry policy
+        drafts_result = await workflow.execute_activity(
+            "get_league_drafts",
+            GetLeagueDraftsParams(league_id=input.league_id),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=workflow.RetryPolicy(
+                maximum_attempts=3,
+                initial_interval=timedelta(seconds=1),
+                maximum_interval=timedelta(seconds=10),
+                backoff_coefficient=2.0,
+            ),
+        )
+        
+        league_drafts = drafts_result["league_drafts"]
+        return {"drafts": league_drafts}
+```
+
+### 3. Import Patterns
+
+- **In activities**: use relative imports (e.g., `from ..clients.sleeper_client_credential import...`)
+- **In workflows**: use relative imports (e.g., `from activities.draft.get_drafts import...`)
+- **In worker registration**: use absolute `src.` imports (e.g., `from src.activities.draft.get_drafts import...`)

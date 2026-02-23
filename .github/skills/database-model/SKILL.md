@@ -5,6 +5,8 @@ description: Add new SQLAlchemy database models and migrations. Use when asked t
 
 # Adding Database Models
 
+> **Note**: This skill is for future implementation when database persistence is added to the project.
+
 Use this skill to add new SQLAlchemy ORM models following project conventions.
 
 ## Steps

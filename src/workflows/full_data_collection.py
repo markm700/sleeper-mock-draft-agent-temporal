@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -59,6 +60,7 @@ class FullDataCollectionWorkflow:
 
     @workflow.run
     async def run(self, params: FullDataCollectionWorkflowParams) -> Dict[str, Any]:
+        wf_hex = os.urandom(4).hex()
         child_workflow_results: list[Dict[str, Any]] = []
         child_retry_policy = RetryPolicy(
             maximum_attempts=3,
@@ -74,7 +76,7 @@ class FullDataCollectionWorkflow:
                 username=params.username,
                 league_name=params.league_name,
             ),
-            id=f"child_workflow-team_owner_data_collection-{params.username}-{_safe_slug(params.league_name)}-{workflow.info().run_id}",
+            id=f"child_workflow-team_owner_data_collection-{params.username}-{_safe_slug(params.league_name)}-{wf_hex}",
             retry_policy=child_retry_policy,
             run_timeout=timedelta(minutes=30),
             execution_timeout=timedelta(minutes=60),
@@ -120,7 +122,7 @@ class FullDataCollectionWorkflow:
         league_result: Dict[str, Any] = await workflow.execute_child_workflow(
             LeagueDataCollectionWorkflow.run,
             LeagueDataCollectionWorkflowParams(league_id=league_id),
-            id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{league_id}-{workflow.info().run_id}",
+            id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{league_id}-{wf_hex}",
             retry_policy=child_retry_policy,
             run_timeout=timedelta(minutes=30),
             execution_timeout=timedelta(minutes=60),

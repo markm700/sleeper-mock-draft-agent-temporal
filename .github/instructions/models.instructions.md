@@ -4,6 +4,8 @@ applyTo: "src/models/**/*.py"
 
 # Data Model Instructions
 
+> **Note**: This directory and these patterns are for future implementation when database storage is added.
+
 ## Database Models (`database_models.py`)
 
 When working with SQLAlchemy ORM models:
