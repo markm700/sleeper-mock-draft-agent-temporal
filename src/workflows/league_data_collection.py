@@ -1,4 +1,3 @@
-import os
 from datetime import timedelta
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -22,7 +21,7 @@ class LeagueDataCollectionWorkflow:
     @workflow.run
     async def run(self, params: LeagueDataCollectionWorkflowParams) -> Dict[str, Any]:
         """Execute the league data collection workflow."""
-        wf_hex = os.urandom(4).hex()
+        wf_hex = workflow.info().run_id[-4:]
         workflow_activities = []
         activity_retry_policy = RetryPolicy(
             maximum_attempts=3,  # 3 total attempts, 2 retries

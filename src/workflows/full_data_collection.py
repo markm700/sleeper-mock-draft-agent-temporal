@@ -1,10 +1,12 @@
-import os
 from datetime import timedelta
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
+with workflow.unsafe.imports_passed_through():
+    from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow, TeamOwnerDataCollectionWorkflowParams
+    from workflows.league_data_collection import LeagueDataCollectionWorkflow, LeagueDataCollectionWorkflowParams
 
 def _safe_slug(text: str | None) -> str:
     """Create a simple, deterministic slug for workflow IDs.
@@ -23,18 +25,6 @@ def _safe_slug(text: str | None) -> str:
             cleaned.append("_")
     slug = "".join(cleaned).strip("_")
     return slug or "value"
-
-
-with workflow.unsafe.imports_passed_through():
-    from workflows.team_owner_data_collection import (
-        TeamOwnerDataCollectionWorkflow,
-        TeamOwnerDataCollectionWorkflowParams,
-    )
-    from workflows.league_data_collection import (
-        LeagueDataCollectionWorkflow,
-        LeagueDataCollectionWorkflowParams,
-    )
-
 
 @dataclass
 class FullDataCollectionWorkflowParams:
@@ -60,7 +50,7 @@ class FullDataCollectionWorkflow:
 
     @workflow.run
     async def run(self, params: FullDataCollectionWorkflowParams) -> Dict[str, Any]:
-        wf_hex = os.urandom(4).hex()
+        wf_hex = workflow.info().run_id[-4:]
         child_workflow_results: list[Dict[str, Any]] = []
         child_retry_policy = RetryPolicy(
             maximum_attempts=3,

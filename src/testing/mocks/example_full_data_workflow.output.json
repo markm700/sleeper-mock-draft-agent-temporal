@@ -6898,7 +6898,7 @@
                                                 }
                                             ]
                                         },
-                                        "total_draft_picks": 1
+                                        "total_draft_picks": 150
                                     },
                                     {
                                         "activity": "get_traded_draft_picks",
@@ -7011,7 +7011,7 @@
                                                 }
                                             ]
                                         },
-                                        "total_traded_picks": 1
+                                        "total_traded_picks": 15
                                     }
                                 ]
                             },
