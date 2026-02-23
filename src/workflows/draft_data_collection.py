@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -33,6 +34,7 @@ class DraftDataCollectionWorkflow:
         picks (including traded picks) for the given league, and aggregates
         their results into a single response payload.
         """
+        wf_hex = os.urandom(4).hex()
         workflow_activities = []
         activity_retry_policy = RetryPolicy(
             maximum_attempts=3,  # 3 total attempts, 2 retries
@@ -46,7 +48,7 @@ class DraftDataCollectionWorkflow:
             get_league_drafts,
             GetLeagueDraftsParams(league_id=params.league_id),
             start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_league_drafts-{params.league_id}",
+            activity_id=f"activity-get_league_drafts-{params.league_id}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
         print(f"Get League Drafts Activity result: {draft_data}")
@@ -61,13 +63,13 @@ class DraftDataCollectionWorkflow:
             get_specific_draft_picks,
             GetSpecificDraftPicksParams(draft_id=draft_id),
             start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}",
+            activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(f"Specific Draft Picks Activity result: {len(draft_picks['draft_picks'])} picks for draft {draft_id}")
+        print(f"Specific Draft Picks Activity result: {len(draft_picks.get('draft_picks', []))} picks for draft {draft_id}")
         workflow_activities.append({
             "activity": "get_specific_draft_picks",
-            "total_draft_picks": len(draft_picks["draft_picks"]),
+            "total_draft_picks": len(draft_picks.get("draft_picks", [])),
             "draft_picks": draft_picks
         })
 
@@ -76,13 +78,13 @@ class DraftDataCollectionWorkflow:
             get_traded_draft_picks,
             GetTradedDraftPicksParams(league_id=params.league_id, season=params.season),
             start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_traded_draft_picks-{params.league_id}-{params.season}",
+            activity_id=f"activity-get_traded_draft_picks-{params.league_id}-{params.season}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(f"Traded Draft Picks Activity result: {len(draft_pick_trades['traded_draft_picks'])} traded picks for league {params.league_id} in season {params.season}")
+        print(f"Traded Draft Picks Activity result: {len(draft_pick_trades.get('traded_draft_picks', []))} traded picks for league {params.league_id} in season {params.season}")
         workflow_activities.append({
             "activity": "get_traded_draft_picks",
-            "total_traded_picks": len(draft_pick_trades["traded_draft_picks"]),
+            "total_traded_picks": len(draft_pick_trades.get("traded_draft_picks", [])),
             "draft_pick_trades": draft_pick_trades
         })
 

@@ -22,6 +22,7 @@ class LeagueDataCollectionWorkflow:
     @workflow.run
     async def run(self, params: LeagueDataCollectionWorkflowParams) -> Dict[str, Any]:
         """Execute the league data collection workflow."""
+        wf_hex = os.urandom(4).hex()
         workflow_activities = []
         activity_retry_policy = RetryPolicy(
             maximum_attempts=3,  # 3 total attempts, 2 retries
@@ -41,7 +42,7 @@ class LeagueDataCollectionWorkflow:
             get_league_data,
             GetLeagueDataParams(league_id=params.league_id),
             start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_league_data-{params.league_id}",
+            activity_id=f"activity-get_league_data-{params.league_id}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
         print(f"League Data Activity result: Total Users {len(league_info['league_users'])}, Total Teams {len(league_info['league_rosters'])}")
@@ -55,7 +56,7 @@ class LeagueDataCollectionWorkflow:
         draft_workflow_result = await workflow.execute_child_workflow(
             DraftDataCollectionWorkflow.run,
             DraftDataCollectionWorkflowParams(league_id=params.league_id,season=season),
-            id=f"child_workflow-draft_data_collection-{params.league_id}-{season}-{os.urandom(4).hex()}",
+            id=f"child_workflow-draft_data_collection-{params.league_id}-{season}-{wf_hex}",
             retry_policy=child_workflow_retry_policy,
             run_timeout=timedelta(minutes=30),
             execution_timeout=timedelta(minutes=60),
