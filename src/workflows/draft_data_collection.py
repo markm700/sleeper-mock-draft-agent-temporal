@@ -88,7 +88,5 @@ class DraftDataCollectionWorkflow:
 
         # Return Activity Data and Workflow Output
         return { 
-            "activity_data": workflow_activities,
-            "total_draft_picks": len(draft_picks["draft_picks"]),
-            "total_traded_picks": len(draft_pick_trades["traded_draft_picks"])
+            "activity_data": workflow_activities
         }
