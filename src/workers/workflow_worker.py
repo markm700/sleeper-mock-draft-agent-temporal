@@ -11,6 +11,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_postgres_client_manager
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
     from workflows.league_data_collection import LeagueDataCollectionWorkflow
+    from workflows.draft_data_collection import DraftDataCollectionWorkflow
     from workflows.full_data_collection import FullDataCollectionWorkflow
     from activities.draft.get_drafts import get_league_drafts
     from activities.draft.get_draft_picks import get_specific_draft_picks
@@ -41,6 +42,7 @@ async def main():
         # Initialize activity/workflow clients
         sleeper = get_sleeper_client_manager()
         postgres = get_postgres_client_manager()
+        postgres.create_all_tables()  # Only for development/testing - use Alembic migrations in production!
 
         try:
             print(f"Starting Workflow Worker...")
@@ -70,8 +72,7 @@ async def main():
         finally:
             # Ensure clients used are closed
             await sleeper.close()
-            await postgres.close()
-            await sleeper.close()
+            postgres.drop_all_tables()  # Only for development/testing - remove in production!
             await postgres.close()
             print("Workflow Worker has shut down.")
 
