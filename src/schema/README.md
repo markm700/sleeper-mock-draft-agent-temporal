@@ -248,7 +248,7 @@ Strategic indexes for common query patterns:
 
 ```python
 from sqlalchemy import create_engine
-from src.schema.database_models import Base
+from schema.database_models import Base
 
 engine = create_engine("postgresql://user:password@localhost:5432/sleeper_db")
 Base.metadata.create_all(engine)
@@ -258,7 +258,7 @@ Base.metadata.create_all(engine)
 
 ```python
 from sqlalchemy.orm import sessionmaker
-from src.schema.database_models import User, League, Roster, Draft, DraftPick, TeamOwner
+from schema.database_models import User, League, Roster, Draft, DraftPick, TeamOwner
 
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -307,7 +307,7 @@ rosters_with_player = (
 ### Inserting Data
 
 ```python
-from src.schema.database_models import User, League, Roster
+from schema.database_models import User, League, Roster
 
 # Create a new user
 user = User(

@@ -230,7 +230,7 @@ Based on typical Sleeper league data:
 ## Import and Usage
 
 ```python
-from src.schema.database_models import (
+from schema.database_models import (
     Base,
     User,
     League,

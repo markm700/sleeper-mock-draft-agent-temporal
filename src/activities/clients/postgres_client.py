@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.schema.database_models import Base
+from schema.database_models import Base
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +199,7 @@ class PostgresClientManager:
             Exception: If upsert fails
         
         Example:
-            from src.schema.database_models import User
+            from schema.database_models import User
             
             user_id = pg_client.upsert_record(
                 model=User,
@@ -270,7 +270,7 @@ class PostgresClientManager:
             Exception: If bulk upsert fails
         
         Example:
-            from src.schema.database_models import TeamOwner
+            from schema.database_models import TeamOwner
             
             count = pg_client.upsert_records(
                 model=TeamOwner,
