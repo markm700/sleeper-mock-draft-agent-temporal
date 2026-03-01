@@ -8,9 +8,11 @@ database operations with the Sleeper fantasy football schema.
 import logging
 import os
 from contextlib import contextmanager
-from typing import Generator, Optional
+from datetime import datetime
+from typing import Any, Dict, Generator, List, Optional
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -170,6 +172,153 @@ class PostgresClientManager:
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
             return False
+
+    def upsert_record(
+        self,
+        model: type,
+        data: Dict[str, Any],
+        conflict_columns: Optional[List[str]] = None,
+        update_columns: Optional[List[str]] = None,
+    ) -> Any:
+        """
+        Upsert a single record with auto-commit (INSERT ... ON CONFLICT DO UPDATE).
+        
+        This is the recommended way to save data from activities - it's idempotent
+        and handles both inserts and updates automatically.
+        
+        Args:
+            model: SQLAlchemy model class (e.g., User, League, Roster)
+            data: Dictionary of column names to values
+            conflict_columns: Columns to check for conflict (default: primary key)
+            update_columns: Columns to update on conflict (default: all except PK)
+        
+        Returns:
+            Primary key value(s) of the upserted record
+        
+        Raises:
+            Exception: If upsert fails
+        
+        Example:
+            from src.schema.database_models import User
+            
+            user_id = pg_client.upsert_record(
+                model=User,
+                data={
+                    "user_id": "123",
+                    "username": "markm700",
+                    "display_name": "Mark M",
+                    "is_bot": False,
+                    "metadata": {...}
+                }
+            )
+            # Returns: "123" (the user_id primary key)
+        """
+        with self.session_scope() as session:
+            # Get primary key columns if not specified
+            if conflict_columns is None:
+                mapper = inspect(model)
+                conflict_columns = [col.name for col in mapper.primary_key]
+            
+            # Build the insert statement
+            stmt = insert(model).values(**data)
+            
+            # Determine which columns to update on conflict
+            if update_columns is None:
+                # Update all columns except the conflict columns
+                update_columns = [k for k in data.keys() if k not in conflict_columns]
+            
+            # Add updated_at timestamp if the model has it
+            update_dict = {col: data[col] for col in update_columns if col in data}
+            if hasattr(model, "updated_at") and "updated_at" not in update_dict:
+                update_dict["updated_at"] = datetime.now(datetime.timezone.utc)
+            
+            # Add ON CONFLICT DO UPDATE
+            stmt = stmt.on_conflict_do_update(
+                index_elements=conflict_columns,
+                set_=update_dict,
+            )
+            
+            # Execute and auto-commit via session_scope
+            session.execute(stmt)
+            
+            # Return primary key value(s)
+            pk_values = [data.get(col) for col in conflict_columns]
+            return pk_values[0] if len(pk_values) == 1 else tuple(pk_values)
+
+    def upsert_records(
+        self,
+        model: type,
+        records: List[Dict[str, Any]],
+        conflict_columns: Optional[List[str]] = None,
+        update_columns: Optional[List[str]] = None,
+    ) -> int:
+        """
+        Bulk upsert multiple records with auto-commit.
+        
+        More efficient than calling upsert_record() multiple times.
+        
+        Args:
+            model: SQLAlchemy model class
+            records: List of dictionaries, each containing column names to values
+            conflict_columns: Columns to check for conflict (default: primary key)
+            update_columns: Columns to update on conflict (default: all except PK)
+        
+        Returns:
+            Number of records processed
+        
+        Raises:
+            Exception: If bulk upsert fails
+        
+        Example:
+            from src.schema.database_models import TeamOwner
+            
+            count = pg_client.upsert_records(
+                model=TeamOwner,
+                records=[
+                    {"league_id": "L1", "user_id": "U1", "display_name": "User 1"},
+                    {"league_id": "L1", "user_id": "U2", "display_name": "User 2"},
+                ]
+            )
+            # Returns: 2
+        """
+        if not records:
+            return 0
+        
+        with self.session_scope() as session:
+            # Get primary key columns if not specified
+            if conflict_columns is None:
+                mapper = inspect(model)
+                conflict_columns = [col.name for col in mapper.primary_key]
+            
+            # Determine which columns to update on conflict
+            if update_columns is None:
+                # Update all columns except conflict columns
+                sample_record = records[0]
+                update_columns = [k for k in sample_record.keys() if k not in conflict_columns]
+            
+            # Add updated_at to all records if the model has it
+            if hasattr(model, "updated_at"):
+                for record in records:
+                    if "updated_at" not in record:
+                        record["updated_at"] = datetime.now(datetime.timezone.utc)
+            
+            # Build update dict template (uses excluded.column syntax for bulk)
+            stmt = insert(model)
+            update_dict = {col: stmt.excluded[col] for col in update_columns}
+            
+            # Add ON CONFLICT DO UPDATE
+            stmt = stmt.on_conflict_do_update(
+                index_elements=conflict_columns,
+                set_=update_dict,
+            )
+            
+            # Execute bulk upsert
+            session.execute(stmt, records)
+            
+            # Auto-commit via session_scope
+        
+        logger.info(f"Bulk upserted {len(records)} records to {model.__tablename__}")
+        return len(records)
 
     def close(self) -> None:
         """
