@@ -19,25 +19,57 @@ class DummySleeperClient:
     async def get_league_drafts(self, league_id: str) -> List[Dict[str, Any]]:
         self.called_with_league_ids.append(league_id)
         return [
-            {"league_id": league_id, "draft_id": "draft_1"},
-            {"league_id": league_id, "draft_id": "draft_2"},
+            {
+                "league_id": league_id,
+                "draft_id": "draft_1",
+                "type": "snake",
+                "status": "complete",
+                "season": "2024",
+                "season_type": "regular",
+                "draft_order": {"1": 1, "2": 2},
+                "settings": {"rounds": 15},
+                "metadata": {"name": "Draft 1"},
+                "creator": "user_1",
+                "created": 1609459200000,
+            },
+            {
+                "league_id": league_id,
+                "draft_id": "draft_2",
+                "type": "auction",
+                "status": "pre_draft",
+                "season": "2024",
+                "season_type": "regular",
+                "draft_order": None,
+                "settings": {"rounds": 16},
+                "metadata": {},
+                "creator": "user_2",
+                "created": 1609545600000,
+            },
         ]
 
     async def get_draft_picks(self, draft_id: str) -> List[Dict[str, Any]]:
         self.called_with_draft_ids.append(draft_id)
-        # Minimal, stable structure for testing get_specific_draft_picks
+        # Complete structure for testing get_specific_draft_picks with DB upsert
         return [
             {
                 "draft_id": draft_id,
+                "pick_id": f"{draft_id}_pick_1",
                 "pick_no": 1,
+                "round": 1,
+                "draft_slot": 1,
                 "player_id": "player_1",
                 "roster_id": 1,
+                "picked_by": "user_1",
             },
             {
                 "draft_id": draft_id,
+                "pick_id": f"{draft_id}_pick_2",
                 "pick_no": 2,
+                "round": 1,
+                "draft_slot": 2,
                 "player_id": "player_2",
                 "roster_id": 2,
+                "picked_by": "user_2",
             },
         ]
 
@@ -46,32 +78,36 @@ class DummySleeperClient:
         # Return traded picks from multiple seasons to test filtering
         return [
             {
+                "pick_id": "traded_pick_1",
                 "season": "2024",
                 "round": 1,
                 "roster_id": 2,
-                "previous_owner_id": 1,
-                "owner_id": 2,
+                "previous_owner_id": "1",
+                "owner_id": "2",
             },
             {
+                "pick_id": "traded_pick_2",
                 "season": "2025",
                 "round": 2,
                 "roster_id": 1,
-                "previous_owner_id": 2,
-                "owner_id": 1,
+                "previous_owner_id": "2",
+                "owner_id": "1",
             },
             {
+                "pick_id": "traded_pick_3",
                 "season": "2025",
                 "round": 3,
                 "roster_id": 2,
-                "previous_owner_id": 1,
-                "owner_id": 2,
+                "previous_owner_id": "1",
+                "owner_id": "2",
             },
             {
+                "pick_id": "traded_pick_4",
                 "season": "2026",
                 "round": 1,
                 "roster_id": 1,
-                "previous_owner_id": 2,
-                "owner_id": 1,
+                "previous_owner_id": "2",
+                "owner_id": "1",
             },
         ]
 
@@ -84,6 +120,20 @@ class DummySleeperClient:
             "league_id": league_id,
             "name": league_name,
             "season": "2024",
+            "season_type": "regular",
+            "previous_league_id": None,
+            "draft_id": "draft_123",
+            "shard": 1,
+            "roster_positions": ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"],
+            "total_rosters": 2,
+            "settings": {"num_teams": 2},
+            "scoring_settings": {"pass_td": 4},
+            "metadata": {"custom": "data"},
+            "status": "in_season",
+            "bracket_id": None,
+            "loser_bracket_id": None,
+            "bracket_overrides_id": None,
+            "loser_bracket_overrides_id": None,
         }
 
     async def get_league_users(
@@ -106,8 +156,20 @@ class DummySleeperClient:
 
         # Two fake users associated with the league identifier
         return [
-            {"user_id": "user_1", "display_name": f"owner_1_{league_key}"},
-            {"user_id": "user_2", "display_name": f"owner_2_{league_key}"},
+            {
+                "user_id": "user_1",
+                "username": "testuser1",
+                "display_name": f"owner_1_{league_key}",
+                "real_name": None,
+                "is_bot": False,
+            },
+            {
+                "user_id": "user_2",
+                "username": "testuser2",
+                "display_name": f"owner_2_{league_key}",
+                "real_name": "Real User 2",
+                "is_bot": False,
+            },
         ]
 
     async def get_league_rosters(self, league_name: Optional[str] = None, league_id: Optional[str] = None
@@ -127,12 +189,26 @@ class DummySleeperClient:
                 "roster_id": 1,
                 "owner_id": "user_1",
                 "players": ["player_1", "player_2"],
+                "starters": ["player_1"],
+                "keepers": [],
+                "roster_settings": {},
+                "reserve": [],
+                "taxi": [],
+                "co_owners": None,
+                "metadata": {},
             },
             {
                 "league_key": league_key,
                 "roster_id": 2,
                 "owner_id": "user_2",
                 "players": ["player_3", "player_4"],
+                "starters": ["player_3"],
+                "keepers": ["player_3"],
+                "roster_settings": {"wins": 5},
+                "reserve": [],
+                "taxi": [],
+                "co_owners": None,
+                "metadata": {"streak": "2W"},
             },
         ]
 

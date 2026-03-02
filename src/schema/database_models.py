@@ -9,7 +9,7 @@ ORM: SQLAlchemy 2.0+
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import (
@@ -54,12 +54,12 @@ class User(Base):
     phone = Column(String(50), nullable=True)
 
     # Semi-structured data
-    metadata = Column(JSONB, nullable=True, comment="User metadata from API")
+    api_metadata = Column(JSONB, nullable=True, comment="User metadata from API")
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
     data_updated = Column(
         DateTime, nullable=True, comment="Last update timestamp from Sleeper API"
@@ -146,16 +146,16 @@ class League(Base):
         nullable=True,
         comment="League settings: num_teams, playoff_teams, waiver_type, etc.",
     )
-    metadata = Column(
+    api_metadata = Column(
         JSONB,
         nullable=True,
         comment="Additional league metadata: divisions, keeper settings, auto_continue, etc.",
     )
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
 
     # Relationships
@@ -216,16 +216,16 @@ class TeamOwner(Base):
     is_bot = Column(Boolean, default=False)
 
     # League-specific metadata
-    metadata = Column(
+    api_metadata = Column(
         JSONB,
         nullable=True,
         comment="League-specific user metadata: team_name, allow_pn, mention_pn, etc.",
     )
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
 
     # Relationships
@@ -301,7 +301,7 @@ class Roster(Base):
         nullable=True,
         comment="Team stats: wins, losses, points_for, points_against, waiver_position, etc.",
     )
-    metadata = Column(
+    api_metadata = Column(
         JSONB,
         nullable=True,
         comment="Roster metadata: streak, record, division, continued_from, etc.",
@@ -315,9 +315,9 @@ class Roster(Base):
     )
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
 
     # Relationships
@@ -381,16 +381,16 @@ class Draft(Base):
         nullable=True,
         comment="Draft settings: rounds, slots_per_round, reversal_round, etc.",
     )
-    metadata = Column(JSONB, nullable=True, comment="Additional draft metadata")
+    api_metadata = Column(JSONB, nullable=True, comment="Additional draft metadata")
 
     # Creator Info
     creator_id = Column(String(50), nullable=True, comment="User who created the draft")
     created = Column(Integer, nullable=True, comment="Creation timestamp (Unix ms)")
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
 
     # Relationships
@@ -464,16 +464,16 @@ class DraftPick(Base):
 
     # Pick Details
     is_keeper = Column(Boolean, default=False, comment="Was this a keeper pick?")
-    metadata = Column(
+    api_metadata = Column(
         JSONB,
         nullable=True,
         comment="Pick metadata: years_owned, position, team, amount (auction), etc.",
     )
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
 
     # Relationships
@@ -537,9 +537,9 @@ class TradedDraftPick(Base):
     )
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
 
     # Relationships
@@ -609,7 +609,7 @@ class Player(Base):
     rotoworld_id = Column(String(50), nullable=True)
 
     # Player Metadata
-    metadata = Column(
+    api_metadata = Column(
         JSONB,
         nullable=True,
         comment="Additional player metadata from Sleeper API",
@@ -622,9 +622,9 @@ class Player(Base):
     injury_start_date = Column(String(50), nullable=True)
 
     # Audit fields
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False
+        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False
     )
 
     # Relationships

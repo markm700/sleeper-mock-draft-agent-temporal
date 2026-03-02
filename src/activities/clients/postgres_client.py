@@ -8,7 +8,7 @@ database operations with the Sleeper fantasy football schema.
 import logging
 import os
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Generator, List, Optional
 
 from sqlalchemy import create_engine, inspect, text
@@ -208,7 +208,7 @@ class PostgresClientManager:
                     "username": "markm700",
                     "display_name": "Mark M",
                     "is_bot": False,
-                    "metadata": {...}
+                    "api_metadata": {...}
                 }
             )
             # Returns: "123" (the user_id primary key)
@@ -227,10 +227,10 @@ class PostgresClientManager:
                 # Update all columns except the conflict columns
                 update_columns = [k for k in data.keys() if k not in conflict_columns]
             
-            # Add updated_at timestamp if the model has it
-            update_dict = {col: data[col] for col in update_columns if col in data}
+            # Build update dict using excluded.column syntax (values from the INSERT attempt)
+            update_dict = {col: stmt.excluded[col] for col in update_columns if col in data}
             if hasattr(model, "updated_at") and "updated_at" not in update_dict:
-                update_dict["updated_at"] = datetime.now(datetime.timezone.utc)
+                update_dict["updated_at"] = datetime.now(timezone.utc)
             
             # Add ON CONFLICT DO UPDATE
             stmt = stmt.on_conflict_do_update(
@@ -300,7 +300,7 @@ class PostgresClientManager:
             if hasattr(model, "updated_at"):
                 for record in records:
                     if "updated_at" not in record:
-                        record["updated_at"] = datetime.now(datetime.timezone.utc)
+                        record["updated_at"] = datetime.now(timezone.utc)
             
             # Build update dict template (uses excluded.column syntax for bulk)
             stmt = insert(model)
