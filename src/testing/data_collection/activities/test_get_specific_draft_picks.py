@@ -19,12 +19,12 @@ async def test_get_specific_draft_picks_uses_client_and_wraps(monkeypatch: pytes
         return dummy_postgres
 
     monkeypatch.setattr(
-        "src.activities.draft.get_draft_picks.get_sleeper_client_manager",
+        "activities.draft.get_draft_picks.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
     )
     
     monkeypatch.setattr(
-        "src.activities.draft.get_draft_picks.get_postgres_client_manager",
+        "activities.draft.get_draft_picks.get_postgres_client_manager",
         _fake_get_postgres_client_manager,
     )
 

@@ -17,7 +17,7 @@ async def test_get_team_owner_rosters_filters_by_user_id(
         return dummy
 
     monkeypatch.setattr(
-        "src.activities.team_owner.get_roster.get_sleeper_client_manager",
+        "activities.team_owner.get_roster.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
     )
 
@@ -34,4 +34,4 @@ async def test_get_team_owner_rosters_filters_by_user_id(
     # Also verify that when user_id is None, all rosters are returned
     params_all = GetLeagueRosterParams(league_id="league_123", user_id=None)
     result_all = await get_team_owner_rosters(params_all)
-    assert len(result_all["roster"]) == 2
+    assert len(result_all["rosters"]) == 2  # Note: "rosters" (plural) when user_id=None

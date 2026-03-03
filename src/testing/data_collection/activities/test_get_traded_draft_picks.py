@@ -22,12 +22,12 @@ async def test_get_traded_draft_picks_fetches_league_traded_picks(
         return dummy_postgres
 
     monkeypatch.setattr(
-        "src.activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
+        "activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
     )
     
     monkeypatch.setattr(
-        "src.activities.draft.get_traded_draft_picks.get_postgres_client_manager",
+        "activities.draft.get_traded_draft_picks.get_postgres_client_manager",
         _fake_get_postgres_client_manager,
     )
 
@@ -76,12 +76,12 @@ async def test_get_traded_draft_picks_filters_by_custom_season(
         return dummy_postgres
 
     monkeypatch.setattr(
-        "src.activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
+        "activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
     )
     
     monkeypatch.setattr(
-        "src.activities.draft.get_traded_draft_picks.get_postgres_client_manager",
+        "activities.draft.get_traded_draft_picks.get_postgres_client_manager",
         _fake_get_postgres_client_manager,
     )
 

@@ -39,7 +39,7 @@ async def test_draft_data_collection_runs_activities_and_returns_aggregated_data
         raise AssertionError(f"Unexpected activity function passed to execute_activity: {name}")
 
     monkeypatch.setattr(
-        "src.workflows.draft_data_collection.workflow.execute_activity",
+        "workflows.draft_data_collection.workflow.execute_activity",
         _fake_execute_activity,
     )
 

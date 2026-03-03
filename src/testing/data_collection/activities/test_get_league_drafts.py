@@ -24,12 +24,12 @@ async def test_get_league_drafts_wraps_client_response(
     # Patch the dependency inside the activity module so no real
     # HTTP requests or environment variables are required.
     monkeypatch.setattr(
-        "src.activities.draft.get_drafts.get_sleeper_client_manager",
+        "activities.draft.get_drafts.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
     )
     
     monkeypatch.setattr(
-        "src.activities.draft.get_drafts.get_postgres_client_manager",
+        "activities.draft.get_drafts.get_postgres_client_manager",
         _fake_get_postgres_client_manager,
     )
 

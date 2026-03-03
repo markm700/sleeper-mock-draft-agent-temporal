@@ -42,7 +42,7 @@ async def test_team_owner_data_collection_runs_owner_and_roster_activities(
         raise AssertionError(f"Unexpected activity function passed to execute_activity: {name}")
 
     monkeypatch.setattr(
-        "src.workflows.team_owner_data_collection.workflow.execute_activity",
+        "workflows.team_owner_data_collection.workflow.execute_activity",
         _fake_execute_activity,
     )
 

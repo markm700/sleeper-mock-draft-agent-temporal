@@ -45,7 +45,7 @@ async def test_full_data_collection_chains_owner_and_league_workflows_with_lates
         raise AssertionError(f"Unexpected child workflow: {wf}")
 
     monkeypatch.setattr(
-        "src.workflows.full_data_collection.workflow.execute_child_workflow",
+        "workflows.full_data_collection.workflow.execute_child_workflow",
         _fake_execute_child_workflow,
     )
 

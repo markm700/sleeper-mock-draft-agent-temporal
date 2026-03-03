@@ -21,12 +21,12 @@ async def test_get_team_owner_data_uses_user_and_leagues(
         return dummy_postgres
 
     monkeypatch.setattr(
-        "src.activities.team_owner.get_data.get_sleeper_client_manager",
+        "activities.team_owner.get_data.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
     )
     
     monkeypatch.setattr(
-        "src.activities.team_owner.get_data.get_postgres_client_manager",
+        "activities.team_owner.get_data.get_postgres_client_manager",
         _fake_get_postgres_client_manager,
     )
 
