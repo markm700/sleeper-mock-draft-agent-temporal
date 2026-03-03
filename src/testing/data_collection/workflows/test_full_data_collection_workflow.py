@@ -126,3 +126,8 @@ async def test_full_data_collection_chains_owner_and_league_workflows_with_lates
     assert hasattr(league_params, "league_id")
     assert getattr(league_params, "league_id", None) == "league-latest"
     assert "retry_policy" in kwargs2
+
+    wf3, args3, kwargs3 = child_calls[2]
+    assert wf3.__qualname__ == "PlayerDataCollectionWorkflow.run"
+    assert len(args3) == 0  # No input parameters for player workflow
+    assert "retry_policy" in kwargs3
