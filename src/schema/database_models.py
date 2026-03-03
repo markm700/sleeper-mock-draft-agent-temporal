@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -66,9 +67,8 @@ class User(Base):
     )
 
     # Relationships
-    team_owners = relationship("TeamOwner", back_populates="user", cascade="all, delete-orphan")
-    rosters = relationship("Roster", back_populates="owner", cascade="all, delete-orphan")
-    picks_made = relationship("DraftPick", back_populates="picked_by_user")
+    # Note: team_owners, rosters, and picks_made relationships removed since those tables
+    # use reference-only user_id fields (no FK constraints for ETL flexibility)
 
     # Indexes
     __table_args__ = (
@@ -94,13 +94,12 @@ class League(Base):
     # Primary Key
     league_id = Column(String(50), primary_key=True, comment="Sleeper league_id")
     
-    # Foreign Keys
+    # Reference Fields (no FK constraint for ETL flexibility)
     draft_id = Column(
         String(50),
-        ForeignKey("drafts.draft_id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Primary draft_id"
+        comment="Primary draft_id (reference only, no FK constraint for ETL flexibility)"
     )
 
     # Core League Fields
@@ -122,10 +121,10 @@ class League(Base):
     previous_league_id = Column(
         String(50), nullable=True, comment="League ID from previous season"
     )
-    bracket_id = Column(Integer, nullable=True)
-    loser_bracket_id = Column(Integer, nullable=True)
-    bracket_overrides_id = Column(Integer, nullable=True)
-    loser_bracket_overrides_id = Column(Integer, nullable=True)
+    bracket_id = Column(BigInteger, nullable=True)
+    loser_bracket_id = Column(BigInteger, nullable=True)
+    bracket_overrides_id = Column(BigInteger, nullable=True)
+    loser_bracket_overrides_id = Column(BigInteger, nullable=True)
 
     # League Type
     season_type = Column(
@@ -203,15 +202,17 @@ class TeamOwner(Base):
     league_id = Column(
         String(50), ForeignKey("leagues.league_id", ondelete="CASCADE"), nullable=False
     )
+    
+    # Reference Fields (no FK constraint for ETL flexibility)
     user_id = Column(
-        String(50), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+        String(50),
+        nullable=False,
+        index=True,
+        comment="User_id reference (no FK constraint for ETL flexibility)"
     )
 
     # League-specific User Data
     display_name = Column(String(255), nullable=False, comment="Display name in this league")
-    team_name = Column(
-        String(255), nullable=True, comment="Custom team name for this league"
-    )
     is_owner = Column(Boolean, default=False, comment="Is this user the league commissioner?")
     is_bot = Column(Boolean, default=False)
 
@@ -229,8 +230,8 @@ class TeamOwner(Base):
     )
 
     # Relationships
-    user = relationship("User", back_populates="team_owners")
     league = relationship("League", back_populates="team_owners")
+    # Note: No relationship to User - user_id is reference-only for ETL flexibility
 
     # Constraints and Indexes
     __table_args__ = (
@@ -264,13 +265,12 @@ class Roster(Base):
     )
     roster_id = Column(Integer, nullable=False, comment="Roster ID within the league (1-N), typuically N = 10 or 12 (total_rosters)")
 
-    # Owner Information
+    # Reference Fields (no FK constraint for ETL flexibility)
     owner_id = Column(
         String(50),
-        ForeignKey("users.user_id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Primary owner user_id",
+        comment="Primary owner user_id (reference only, no FK constraint for ETL flexibility)",
     )
     co_owners = Column(
         ARRAY(String(50)), nullable=True, comment="Array of co-owner user_ids"
@@ -322,7 +322,7 @@ class Roster(Base):
 
     # Relationships
     league = relationship("League", back_populates="rosters")
-    owner = relationship("User", back_populates="rosters")
+    # Note: No relationship to User - owner_id is reference-only for ETL flexibility
     # Note: No direct relationship to DraftPick - roster_id in DraftPick is league-internal number, not FK
 
     # Constraints and Indexes
@@ -385,7 +385,7 @@ class Draft(Base):
 
     # Creator Info
     creator_id = Column(String(50), nullable=True, comment="User who created the draft")
-    created = Column(Integer, nullable=True, comment="Creation timestamp (Unix ms)")
+    created = Column(BigInteger, nullable=True, comment="Creation timestamp (Unix ms)")
 
     # Audit fields
     created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
@@ -434,19 +434,21 @@ class DraftPick(Base):
         index=True,
         comment="Draft_id the pick occurred in"
     )
-    player_id = Column(
-        String(50),
-        ForeignKey("players.player_id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-        comment="Sleeper player_id that was picked"
-    )
+    
+    # Reference Fields (no FK constraint for ETL flexibility)
     picked_by = Column(
         String(50),
-        ForeignKey("users.user_id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="User_id who made the pick (may differ from roster owner)"
+        comment="User_id who made the pick (reference only, no FK constraint for ETL flexibility)"
+    )
+    
+    # Reference Fields (no FK constraint for ETL flexibility)
+    player_id = Column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="Sleeper player_id that was picked (reference only, no FK constraint since Player table is optional)"
     )
     
     # Non-FK Fields (roster_id is league-internal number, not DB FK)
@@ -478,8 +480,8 @@ class DraftPick(Base):
 
     # Relationships
     draft = relationship("Draft", back_populates="picks")
-    player = relationship("Player", back_populates="draft_picks")
-    picked_by_user = relationship("User", back_populates="picks_made")
+    # Note: No relationship to User - picked_by is reference-only for ETL flexibility
+    # Note: No direct relationship to Player - player_id is reference-only for ETL flexibility
 
     # Constraints and Indexes
     __table_args__ = (
@@ -628,7 +630,7 @@ class Player(Base):
     )
 
     # Relationships
-    draft_picks = relationship("DraftPick", back_populates="player")
+    # Note: No back_populates from DraftPick - player_id is reference-only for ETL flexibility
 
     # Indexes
     __table_args__ = (

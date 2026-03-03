@@ -30,20 +30,31 @@ async def get_traded_draft_picks(input: GetTradedDraftPicksParams) -> Dict[str, 
         ]
 
         # DB data - Traded Draft Picks
+        pick_records = []
         for pick in traded_picks:
-            postgres.upsert_record(
-                model=TradedDraftPick,
-                data={
+            roster_id = pick.get("roster_id")
+            round_num = pick.get("round")
+            
+            if roster_id is None or round_num is None:
+                print(f"Skipping traded pick with missing required fields: roster_id={roster_id}, round={round_num}")
+                continue
+            
+            pick_records.append({
                     "league_id": input.league_id,
-                    "owner_id": pick["owner_id"],
-                    "previous_owner_id": pick["previous_owner_id"],
-                    "roster_id": pick["roster_id"],
+                    "owner_id": pick.get("owner_id"),
+                    "previous_owner_id": pick.get("previous_owner_id"),
+                    "roster_id": roster_id,
                     "season": input.season,
-                    "round": pick["round"],
+                    "round": round_num,
                 }
             )
-            print(f"Successfully upserted traded draft pick {pick['pick_id']} for {input.season} season to database")
-        print(f"Successfully upserted all {len(traded_picks)} traded draft picks for league {input.league_id} to database")
+            print(f"Successfully added traded draft pick (roster {roster_id}, round {round_num}) for {input.season} season to be batch upserted into database")
+        postgres.upsert_records(
+            model=TradedDraftPick,
+            records=pick_records,
+            conflict_columns=["league_id", "season", "round", "roster_id"],
+        )
+        print(f"Successfully batch upserted {len(pick_records)} traded draft picks for league {input.league_id} to database")
 
         return { "traded_draft_picks": traded_picks }
     except Exception as e:

@@ -19,10 +19,7 @@ The schema is designed to store data from the Sleeper API in a normalized Postgr
   - `display_name`
   - `is_bot`
   - `metadata` (JSONB)
-- **Relationships**:
-  - One-to-many with `TeamOwner` (team_owners: user participates in multiple leagues)
-  - One-to-many with `Roster` (rosters: user owns multiple rosters)
-  - One-to-many with `DraftPick` (picks_made: picks made by this user)
+- **Note**: Users are referenced by `team_owners.user_id`, `rosters.owner_id`, and `draft_picks.picked_by` without FK constraints for ETL flexibility.
 
 #### 2. **League**
 - **Table**: `leagues`
@@ -33,11 +30,12 @@ The schema is designed to store data from the Sleeper API in a normalized Postgr
   - `season` (indexed, e.g., "2025")
   - `status` (indexed: pre_draft, drafting, in_season, complete)
   - `sport` (default: "nfl")
-  - `draft_id` (indexed, FK to drafts)
+  - `draft_id` (indexed, reference to drafts - no FK constraint for ETL flexibility)
   - `roster_positions` (JSONB array: ["QB", "RB", "RB", "WR", ...])
   - `scoring_settings` (JSONB: pass_yd: 0.04, rec: 1, rush_td: 6, ...)
   - `league_settings` (JSONB: num_teams, playoff_teams, waiver_type, ...)
   - `metadata` (JSONB: divisions, keeper_deadline, ...)
+- **Note**: The `draft_id` field is a reference field without FK constraint to allow flexible data insertion order in ETL workflows. The relationship is maintained through `Draft.league_id` FK.
 - **Relationships**:
   - One-to-many with `TeamOwner` (multiple users in league)
   - One-to-many with `Roster` (multiple team rosters)
@@ -51,14 +49,14 @@ The schema is designed to store data from the Sleeper API in a normalized Postgr
 - **Purpose**: Represents a user's participation in a specific league with league-specific data
 - **Key Fields**:
   - `league_id` (FK to leagues)
-  - `user_id` (FK to users)
+  - `user_id` (reference to users - no FK constraint for ETL flexibility)
   - `display_name` (league-specific display name)
   - `team_name` (custom team name in this league)
   - `is_owner` (boolean: is league commissioner?)
   - `is_bot` (boolean)
   - `metadata` (JSONB: league-specific user settings)
+- **Note**: `user_id` is a reference field without FK constraint to allow team owners to be inserted before corresponding user records.
 - **Relationships**:
-  - Many-to-one with `User`
   - Many-to-one with `League`
 
 #### 4. **Roster**
@@ -69,7 +67,7 @@ The schema is designed to store data from the Sleeper API in a normalized Postgr
 - **Key Fields**:
   - `league_id` (FK to leagues, indexed)
   - `roster_id` (roster number within league: 1-N)
-  - `owner_id` (FK to users, nullable, indexed)
+  - `owner_id` (reference to users, nullable, indexed - no FK constraint for ETL flexibility)
   - `co_owners` (ARRAY of user_ids)
   - `players` (JSONB array of player_ids: all players on roster)
   - `starters` (JSONB array of player_ids: starting lineup)
@@ -79,9 +77,9 @@ The schema is designed to store data from the Sleeper API in a normalized Postgr
   - `roster_settings` (JSONB: wins, losses, points_for, points_against, waiver_position, ...)
   - `metadata` (JSONB: streak, record, division, ...)
   - `players_map` (JSONB: optional player_id mapping)
+- **Note**: `owner_id` is a reference field without FK constraint to handle cases where roster owners aren't in the league users list (e.g., users who left the league).
 - **Relationships**:
   - Many-to-one with `League`
-  - Many-to-one with `User` (owner)
 
 #### 5. **Draft**
 - **Table**: `drafts`
@@ -111,15 +109,14 @@ The schema is designed to store data from the Sleeper API in a normalized Postgr
   - `pick_no` (overall pick number: 1-N)
   - `round` (round number, indexed)
   - `draft_slot` (position within round)
-  - `player_id` (FK to players, indexed, SET NULL on delete)
-  - `picked_by` (FK to users.user_id who made the pick, SET NULL on delete)
+  - `player_id` (reference to players, indexed - no FK constraint for ETL flexibility)
+  - `picked_by` (reference to users.user_id who made the pick - no FK constraint for ETL flexibility)
   - `roster_id` (Integer: league-internal roster number, NOT a FK)
   - `is_keeper` (boolean)
   - `metadata` (JSONB: position, team, amount for auction, ...)
+- **Note**: Both `player_id` and `picked_by` are reference fields without FK constraints. This allows draft picks to be collected independently from player/user data and handles cases where users may no longer be in the league.
 - **Relationships**:
   - Many-to-one with `Draft` (draft)
-  - Many-to-one with `Player` (player)
-  - Many-to-one with `User` (picked_by_user)
 - **Note**: roster_id is a league-internal number (1-N), not a database foreign key
 
 #### 7. **TradedDraftPick**
@@ -153,9 +150,7 @@ The schema is designed to store data from the Sleeper API in a normalized Postgr
   - External IDs: `espn_id`, `yahoo_id`, `fantasy_data_id`, etc.
   - `injury_status`, `injury_body_part`, `injury_notes`
   - `metadata` (JSONB)
-- **Relationships**:
-  - One-to-many with `DraftPick` (draft_picks: picks of this player)
-- **Note**: This table is optional and can be populated separately from the main data collection workflows
+- **Note**: This table is optional and can be populated separately from the main data collection workflows. Draft picks reference player_ids without FK constraints for ETL flexibility.
 
 ## Entity Relationship Diagram
 
@@ -169,14 +164,13 @@ User (team owner)
 │         ├─── Draft (many drafts per league)
 │         │    └─── DraftPick (many picks per draft)
 │         │         ├─── User (picked_by_user, nullable)
-│         │         └─── Player (player, nullable)
+│         │         └─── player_id (reference to Player, no FK)
 │         └─── TradedDraftPick (many traded picks per league)
 │
 ├─── Roster (one user owns many rosters across leagues)
 └─── DraftPick (picks_made: picks made by this user)
 
-Player (optional, referenced by FK in draft_picks)
- └─── DraftPick (draft_picks: picks selecting this player)
+Player (optional table, referenced by draft_picks.player_id without FK constraint)
 ```
 
 ## Key Design Decisions

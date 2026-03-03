@@ -22,22 +22,43 @@ async def get_specific_draft_picks(input: GetSpecificDraftPicksParams) -> Dict[s
         draft_picks = await sleeper.get_draft_picks(draft_id=input.draft_id)
 
         # DB data - Draft Picks
+        pick_records = []
         for pick in draft_picks:
-            postgres.upsert_record(
-                model=DraftPick,
-                data={
-                    "draft_id": pick["draft_id"],
-                    "pick_id": pick["pick_id"],
-                    "player_id": pick["player_id"],
-                    "roster_id": pick["roster_id"],
-                    "picked_by": pick["picked_by"],
-                    "pick_no": pick["pick_no"],
-                    "round": pick["round"],
-                    "draft_slot": pick["draft_slot"],
+            draft_id = pick.get("draft_id")
+            pick_no = pick.get("pick_no")
+            
+            if not draft_id or pick_no is None:
+                print(f"Skipping pick with missing required fields: draft_id={draft_id}, pick_no={pick_no}")
+                continue
+            
+            pick_records.append({
+                    "draft_id": draft_id,
+                    "player_id": pick.get("player_id"),
+                    "roster_id": pick.get("roster_id"),
+                    "picked_by": pick.get("picked_by"),
+                    "pick_no": pick_no,
+                    "round": pick.get("round"),
+                    "draft_slot": pick.get("draft_slot"),
+                    "is_keeper": pick.get("is_keeper", False),
+                    "api_metadata": pick.get("metadata", {}),
                 }
             )
-            print(f"Successfully upserted draft pick {pick['pick_id']} to database")
-        print(f"Successfully upserted all {len(draft_picks)} draft picks for draft {input.draft_id} to database")
+            print(f"Successfully added draft pick #{pick_no} to be batch upserted into database")
+        postgres.upsert_records(
+            model=DraftPick,
+            records=pick_records,
+            conflict_columns=["draft_id", "pick_no"],
+            update_columns=[
+                "player_id",
+                "roster_id",
+                "picked_by",
+                "round",
+                "draft_slot",
+                "is_keeper",
+                "api_metadata"
+            ]
+        )
+        print(f"Successfully batch upserted {len(pick_records)} draft picks for draft {input.draft_id} to database")
 
         return { "draft_picks": draft_picks }
     except Exception as e:

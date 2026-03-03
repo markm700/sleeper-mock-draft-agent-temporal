@@ -23,18 +23,26 @@ async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
     
     try:
         user_data = await sleeper.get_user(input.username)
-        user_id = user_data["user_id"]
+        user_id = user_data.get("user_id")
+        
+        if not user_id:
+            raise ValueError(f"No user_id found for username: {input.username}")
+            
         print(f"Team Owner {input.username} User Id = {user_id}")
 
         user_leagues = await sleeper.get_user_leagues(user_id=user_id, league_name=input.league_name)
         
         # DB data - upsert user
+        username = user_data.get("username", user_data.get("display_name"))  # Fallback to display_name if username is missing
+        if not username:
+            raise ValueError(f"Missing required fields for user {user_id}: username={username}")
+        
         postgres.upsert_record(
             model=User,
             data={
-                "user_id": user_data["user_id"],
-                "username": user_data["username"],
-                "display_name": user_data["display_name"],
+                "user_id": user_id,
+                "username": username,
+                "display_name": user_data.get("display_name", "Unknown"),
                 "real_name": user_data.get("real_name"),
                 "is_bot": user_data.get("is_bot", False),
             }
