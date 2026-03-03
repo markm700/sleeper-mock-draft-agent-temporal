@@ -3,3 +3,7 @@ pytest
 pytest-asyncio
 slugify
 temporalio==1.21.1
+
+# PostgreSQL
+SQLAlchemy>=2.0
+psycopg2-binary

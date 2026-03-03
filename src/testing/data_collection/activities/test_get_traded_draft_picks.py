@@ -4,7 +4,7 @@ from activities.draft.get_traded_draft_picks import (
     GetTradedDraftPicksParams,
     get_traded_draft_picks,
 )
-from testing.mocks import DummySleeperClient
+from testing.mocks import DummySleeperClient, DummyPostgresClient
 
 
 @pytest.mark.asyncio
@@ -12,14 +12,23 @@ async def test_get_traded_draft_picks_fetches_league_traded_picks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that get_traded_draft_picks activity filters by default season (2025)."""
-    dummy = DummySleeperClient()
+    dummy_sleeper = DummySleeperClient()
+    dummy_postgres = DummyPostgresClient()
 
     def _fake_get_sleeper_client_manager() -> DummySleeperClient:
-        return dummy
+        return dummy_sleeper
+
+    def _fake_get_postgres_client_manager() -> DummyPostgresClient:
+        return dummy_postgres
 
     monkeypatch.setattr(
-        "src.activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
+        "activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
+    )
+    
+    monkeypatch.setattr(
+        "activities.draft.get_traded_draft_picks.get_postgres_client_manager",
+        _fake_get_postgres_client_manager,
     )
 
     # Test with default season (2025)
@@ -40,7 +49,16 @@ async def test_get_traded_draft_picks_fetches_league_traded_picks(
         assert "previous_owner_id" in pick
 
     # Verify the dummy client was called with correct league_id
-    assert "league-456" in dummy.called_with_league_ids
+    assert "league-456" in dummy_sleeper.called_with_league_ids
+    
+    # Verify database bulk upserts were called for traded picks (2 picks for 2025)
+    assert dummy_postgres.count_upserts_for_model("TradedDraftPick") == 2
+    
+    # Verify bulk upserted traded pick data structure
+    traded_picks = dummy_postgres.get_bulk_upserted_by_model("TradedDraftPick")
+    assert len(traded_picks) == 2
+    assert all("season" in pick for pick in traded_picks)
+    assert all(pick["season"] == "2025" for pick in traded_picks)
 
 
 @pytest.mark.asyncio
@@ -48,14 +66,23 @@ async def test_get_traded_draft_picks_filters_by_custom_season(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that get_traded_draft_picks can filter by a custom season."""
-    dummy = DummySleeperClient()
+    dummy_sleeper = DummySleeperClient()
+    dummy_postgres = DummyPostgresClient()
 
     def _fake_get_sleeper_client_manager() -> DummySleeperClient:
-        return dummy
+        return dummy_sleeper
+
+    def _fake_get_postgres_client_manager() -> DummyPostgresClient:
+        return dummy_postgres
 
     monkeypatch.setattr(
-        "src.activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
+        "activities.draft.get_traded_draft_picks.get_sleeper_client_manager",
         _fake_get_sleeper_client_manager,
+    )
+    
+    monkeypatch.setattr(
+        "activities.draft.get_traded_draft_picks.get_postgres_client_manager",
+        _fake_get_postgres_client_manager,
     )
 
     # Test with season 2024 - should return 1 pick
@@ -71,3 +98,6 @@ async def test_get_traded_draft_picks_filters_by_custom_season(
 
     assert len(result_2026["traded_draft_picks"]) == 1
     assert all(pick["season"] == "2026" for pick in result_2026["traded_draft_picks"])
+    
+    # Verify database bulk upserts were called (1 for 2024 + 1 for 2026 = 2 total)
+    assert dummy_postgres.count_upserts_for_model("TradedDraftPick") == 2

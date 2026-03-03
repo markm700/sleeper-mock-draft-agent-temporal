@@ -37,11 +37,11 @@ async def test_league_data_collection_invokes_league_activity_and_draft_child_wo
         return {"draft_data": "drafts", "draft_pick_trades": "trades"}
 
     monkeypatch.setattr(
-        "src.workflows.league_data_collection.workflow.execute_activity",
+        "workflows.league_data_collection.workflow.execute_activity",
         _fake_execute_activity,
     )
     monkeypatch.setattr(
-        "src.workflows.league_data_collection.workflow.execute_child_workflow",
+        "workflows.league_data_collection.workflow.execute_child_workflow",
         _fake_execute_child_workflow,
     )
 

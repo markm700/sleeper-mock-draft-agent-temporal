@@ -50,7 +50,7 @@ class DraftDataCollectionWorkflow:
             activity_id=f"activity-get_league_drafts-{params.league_id}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(f"Get League Drafts Activity result: {draft_data}")
+        print(f"Get League Drafts Activity result: {len(draft_data['league_drafts'])} drafts for league {params.league_id}")
         workflow_activities.append({
             "activity": "get_league_drafts",
             "draft_data": draft_data
