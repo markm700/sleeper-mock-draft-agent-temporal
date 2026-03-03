@@ -255,10 +255,12 @@ This project follows the implementation roadmap in `mock-draft-agent-guides/`:
   - [x] Team owner data collection
   - [x] League data collection
   - [x] Draft data collection
+  - [x] Player data collection
 - [x] Data collection activities:
   - [x] Team owner data (users, leagues, rosters)
   - [x] League metadata and rosters
   - [x] Draft picks and traded picks
+  - [x] NFL player data (all players)
 - [x] Comprehensive test suite with mocks
 - [x] Worker registration and deployment
 
@@ -278,6 +280,7 @@ This project follows the implementation roadmap in `mock-draft-agent-guides/`:
 | **Team Owner Data Collection** | [team_owner_data_collection.py](src/workflows/team_owner_data_collection.py) | Collects user data, leagues, and rosters |
 | **League Data Collection** | [league_data_collection.py](src/workflows/league_data_collection.py) | Fetches league metadata and roster information |
 | **Draft Data Collection** | [draft_data_collection.py](src/workflows/draft_data_collection.py) | Gathers draft picks and traded picks |
+| **Player Data Collection** | [player_data_collection.py](src/workflows/player_data_collection.py) | Collects NFL player data from Sleeper API |
 
 ### Activities
 
@@ -289,6 +292,7 @@ This project follows the implementation roadmap in `mock-draft-agent-guides/`:
 | **get_league_drafts** | [draft/get_drafts.py](src/activities/draft/get_drafts.py) | Get all drafts for a league |
 | **get_specific_draft_picks** | [draft/get_draft_picks.py](src/activities/draft/get_draft_picks.py) | Fetch picks for a specific draft |
 | **get_traded_draft_picks** | [draft/get_traded_draft_picks.py](src/activities/draft/get_traded_draft_picks.py) | Get traded draft picks for a league |
+| **get_all_player_data** | [players/get_all_players.py](src/activities/players/get_all_players.py) | Fetch all NFL player data from Sleeper API |
 
 ### Database Models
 
@@ -300,6 +304,7 @@ Located in [src/schema/database_models.py](src/schema/database_models.py):
 - **Draft**: Draft metadata
 - **DraftPick**: Individual draft picks
 - **TradedDraftPick**: Traded future picks
+- **Player**: NFL player metadata and details
 
 See [src/schema/SCHEMA.md](src/schema/SCHEMA.md) for full schema documentation.
 

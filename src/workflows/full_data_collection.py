@@ -7,6 +7,7 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow, TeamOwnerDataCollectionWorkflowParams
     from workflows.league_data_collection import LeagueDataCollectionWorkflow, LeagueDataCollectionWorkflowParams
+    from workflows.player_data_collection import PlayerDataCollectionWorkflow
 
 def _safe_slug(text: str | None) -> str:
     """Create a simple, deterministic slug for workflow IDs.
@@ -123,6 +124,22 @@ class FullDataCollectionWorkflow:
                 "workflow": "league-data-collection",
                 "league_id": league_id,
                 "result": league_result,
+            }
+        )
+
+        # Step 3: Run player-data-collection as a child workflow for this league
+        players_result: Dict[str, Any] = await workflow.execute_child_workflow(
+            PlayerDataCollectionWorkflow.run,
+            id=f"child_workflow-player_data_collection-{wf_hex}",
+            retry_policy=child_retry_policy,
+            run_timeout=timedelta(minutes=30),
+            execution_timeout=timedelta(minutes=60),
+            task_timeout=timedelta(minutes=10),
+        )
+        child_workflow_results.append(
+            {
+                "workflow": "player-data-collection",
+                "result": players_result,
             }
         )
 
