@@ -51,8 +51,14 @@ async def test_get_traded_draft_picks_fetches_league_traded_picks(
     # Verify the dummy client was called with correct league_id
     assert "league-456" in dummy_sleeper.called_with_league_ids
     
-    # Verify database upserts were called for traded picks (2 picks for 2025)
+    # Verify database bulk upserts were called for traded picks (2 picks for 2025)
     assert dummy_postgres.count_upserts_for_model("TradedDraftPick") == 2
+    
+    # Verify bulk upserted traded pick data structure
+    traded_picks = dummy_postgres.get_bulk_upserted_by_model("TradedDraftPick")
+    assert len(traded_picks) == 2
+    assert all("season" in pick for pick in traded_picks)
+    assert all(pick["season"] == "2025" for pick in traded_picks)
 
 
 @pytest.mark.asyncio
@@ -93,5 +99,5 @@ async def test_get_traded_draft_picks_filters_by_custom_season(
     assert len(result_2026["traded_draft_picks"]) == 1
     assert all(pick["season"] == "2026" for pick in result_2026["traded_draft_picks"])
     
-    # Verify database upserts were called (1 for 2024 + 1 for 2026 = 2 total)
+    # Verify database bulk upserts were called (1 for 2024 + 1 for 2026 = 2 total)
     assert dummy_postgres.count_upserts_for_model("TradedDraftPick") == 2

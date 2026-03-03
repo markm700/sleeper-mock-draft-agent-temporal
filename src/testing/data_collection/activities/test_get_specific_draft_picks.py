@@ -37,5 +37,12 @@ async def test_get_specific_draft_picks_uses_client_and_wraps(monkeypatch: pytes
     assert all(pick["draft_id"] == "draft_123" for pick in result["draft_picks"])
     assert dummy_sleeper.called_with_draft_ids == ["draft_123"]
     
-    # Verify database upserts were called for draft picks
+    # Verify database bulk upserts were called for draft picks
     assert dummy_postgres.count_upserts_for_model("DraftPick") == 2
+    
+    # Verify bulk upserted pick data structure
+    picks = dummy_postgres.get_bulk_upserted_by_model("DraftPick")
+    assert len(picks) == 2
+    assert all("draft_id" in pick for pick in picks)
+    assert all("pick_no" in pick for pick in picks)
+    assert all(pick["draft_id"] == "draft_123" for pick in picks)

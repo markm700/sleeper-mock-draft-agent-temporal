@@ -2,6 +2,17 @@
 
 Quick reference for the Sleeper Mock Draft Agent database schema.
 
+## Schema Design Notes
+
+**ETL Flexibility**: For flexible data insertion order in Temporal workflows, the following fields are **reference fields without foreign key constraints**:
+- `leagues.draft_id` → drafts (leagues can be inserted before drafts; relationship maintained via `drafts.league_id` FK)
+- `draft_picks.player_id` → players (draft picks can be inserted without player records; Player table is optional)
+- `team_owners.user_id` → users (team owners can be inserted before user records; allows flexible user data collection)
+- `rosters.owner_id` → users (rosters can be inserted before owner records; handles cases where roster owners aren't in league users list)
+- `draft_picks.picked_by` → users (draft picks can be inserted before user records; handles picks made by users no longer in league)
+
+This design allows the ETL pipeline to collect league, roster, and draft data independently from user data population, and handles edge cases where users may have left leagues or been removed.
+
 ## Tables
 
 | Table | Primary Key | Description | Key Relationships |
@@ -159,18 +170,20 @@ ORDER BY (r.roster_settings->>'wins')::int DESC
 
 ## Foreign Key Cascade Rules
 
-| Parent Table | Child Table | FK Column | On Delete |
-|--------------|-------------|-----------|-----------|
-| leagues | team_owners | league_id | CASCADE |
-| users | team_owners | user_id | CASCADE |
-| leagues | rosters | league_id | CASCADE |
-| users | rosters | owner_id | SET NULL |
-| leagues | drafts | league_id | CASCADE |
-| drafts | leagues | draft_id | SET NULL |
-| drafts | draft_picks | draft_id | CASCADE |
-| users | draft_picks | picked_by | SET NULL |
-| players | draft_picks | player_id | SET NULL |
-| leagues | traded_draft_picks | league_id | CASCADE |
+| Parent Table | Child Table | FK Column | On Delete | Notes |
+|--------------|-------------|-----------|-----------|-------|
+| leagues | team_owners | league_id | CASCADE | |
+| users | team_owners | user_id | CASCADE | |
+| leagues | rosters | league_id | CASCADE | |
+| users | rosters | owner_id | SET NULL | |
+| leagues | drafts | league_id | CASCADE | |
+| drafts | draft_picks | draft_id | CASCADE | |
+| users | draft_picks | picked_by | SET NULL | |
+| leagues | traded_draft_picks | league_id | CASCADE | |
+
+**Reference-Only Fields (No FK Constraint)**:
+- `leagues.draft_id` → drafts (ETL flexibility)
+- `draft_picks.player_id` → players (Player table optional)
 
 ## Timestamps
 

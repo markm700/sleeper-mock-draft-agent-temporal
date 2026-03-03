@@ -34,7 +34,11 @@ async def test_team_owner_data_collection_runs_owner_and_roster_activities(
             params = args[0]
             league_id = getattr(params, "league_id", None)
             user_id = getattr(params, "user_id", None)
-            return {"league_id": league_id, "user_id": user_id, "roster": f"{league_id}-{user_id}"}
+            return {
+                "league_id": league_id,
+                "user_id": user_id,
+                "roster": [{"roster_id": 1, "owner_id": user_id, "league_id": league_id}]
+            }
         raise AssertionError(f"Unexpected activity function passed to execute_activity: {name}")
 
     monkeypatch.setattr(

@@ -8,12 +8,13 @@ class DummySleeperClient:
     environment variables.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, incomplete_data: bool = False) -> None:
         self.called_with_league_ids: List[str] = []
         self.called_with_draft_ids: List[str] = []
         self.called_with_league_names: List[str] = []
         self.called_with_usernames: List[str] = []
         self.called_user_leagues: List[Dict[str, Any]] = []
+        self.incomplete_data = incomplete_data  # For testing safe dictionary access
 
     # Draft Data
     async def get_league_drafts(self, league_id: str) -> List[Dict[str, Any]]:
@@ -153,6 +154,31 @@ class DummySleeperClient:
         else:
             league_key = league_name or "unknown"
             self.called_with_league_names.append(league_key)
+
+        # Return users with missing fields if incomplete_data flag is set
+        if self.incomplete_data:
+            return [
+                {
+                    "user_id": "user_1",
+                    "username": "testuser1",
+                    "display_name": f"owner_1_{league_key}",
+                    "real_name": None,
+                    "is_bot": False,
+                },
+                {
+                    # Missing user_id to test safe access and record skipping
+                    "username": "testuser_missing_id",
+                    "display_name": f"owner_missing_{league_key}",
+                    "is_bot": False,
+                },
+                {
+                    "user_id": "user_2",
+                    # Missing username to test fallback to display_name
+                    "display_name": f"owner_2_{league_key}",
+                    "real_name": "Real User 2",
+                    "is_bot": False,
+                },
+            ]
 
         # Two fake users associated with the league identifier
         return [

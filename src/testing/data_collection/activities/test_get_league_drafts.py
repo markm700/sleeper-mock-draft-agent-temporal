@@ -37,13 +37,18 @@ async def test_get_league_drafts_wraps_client_response(
 
     result = await get_league_drafts(params)
 
-    assert result == {
-        "league_drafts": [
-            {"league_id": "league_123", "draft_id": "draft_1"},
-            {"league_id": "league_123", "draft_id": "draft_2"},
-        ]
-    }
+    # Verify league_drafts returned from API
+    assert "league_drafts" in result
+    assert len(result["league_drafts"]) == 2
+    assert all(draft["league_id"] == "league_123" for draft in result["league_drafts"])
     assert dummy_sleeper.called_with_league_ids == ["league_123"]
     
-    # Verify database upserts were called for drafts
+    # Verify database bulk upserts were called for drafts
     assert dummy_postgres.count_upserts_for_model("Draft") == 2
+    
+    # Verify bulk upserted draft data structure
+    drafts = dummy_postgres.get_bulk_upserted_by_model("Draft")
+    assert len(drafts) == 2
+    assert all("draft_id" in draft for draft in drafts)
+    assert all("league_id" in draft for draft in drafts)
+    assert all(draft["league_id"] == "league_123" for draft in drafts)
