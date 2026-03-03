@@ -12,6 +12,13 @@ async def test_draft_data_collection_runs_activities_and_returns_aggregated_data
 ) -> None:
     activity_calls: list[tuple[object, tuple[object, ...], dict]] = []
 
+    # Mock workflow.info() to provide run_id
+    class MockWorkflowInfo:
+        run_id = "test-run-id-1234"
+
+    def _fake_workflow_info() -> MockWorkflowInfo:
+        return MockWorkflowInfo()
+
     async def _fake_execute_activity(fn: object, *args: object, **kwargs: object) -> dict:
         activity_calls.append((fn, args, kwargs))
         name = getattr(fn, "__name__", None)
@@ -38,6 +45,10 @@ async def test_draft_data_collection_runs_activities_and_returns_aggregated_data
             }
         raise AssertionError(f"Unexpected activity function passed to execute_activity: {name}")
 
+    monkeypatch.setattr(
+        "workflows.draft_data_collection.workflow.info",
+        _fake_workflow_info,
+    )
     monkeypatch.setattr(
         "workflows.draft_data_collection.workflow.execute_activity",
         _fake_execute_activity,

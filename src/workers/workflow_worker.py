@@ -11,6 +11,7 @@ with workflow.unsafe.imports_passed_through():
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
     from workflows.league_data_collection import LeagueDataCollectionWorkflow
     from workflows.draft_data_collection import DraftDataCollectionWorkflow
+    from workflows.player_data_collection import PlayerDataCollectionWorkflow
     from workflows.full_data_collection import FullDataCollectionWorkflow
     from activities.draft.get_drafts import get_league_drafts
     from activities.draft.get_draft_picks import get_specific_draft_picks
@@ -18,6 +19,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.team_owner.get_roster import get_team_owner_rosters
     from activities.team_owner.get_data import get_team_owner_data
     from activities.league.get_data import get_league_data
+    from activities.players.get_all_players import get_all_player_data
 
 
 async def main():
@@ -52,6 +54,7 @@ async def main():
                     TeamOwnerDataCollectionWorkflow,
                     LeagueDataCollectionWorkflow,
                     DraftDataCollectionWorkflow,
+                    PlayerDataCollectionWorkflow,
                     FullDataCollectionWorkflow
                 ],
                 activities=[
@@ -60,7 +63,8 @@ async def main():
                     get_specific_draft_picks,
                     get_traded_draft_picks,
                     get_team_owner_rosters, 
-                    get_team_owner_data
+                    get_team_owner_data,
+                    get_all_player_data
                 ],
             )
             print("Workflow Worker started.")

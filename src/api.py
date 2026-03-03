@@ -108,6 +108,29 @@ async def invoke_team_owner_data_workflow(username: str = os.getenv("SLEEPER_USE
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start workflow: {e}")
 
+@app.post("/player-data-collection/run")
+async def invoke_player_data_workflow() -> Dict[str, Any]:
+    """Invoke the player-data-collection workflow for a given user/league."""
+    connection_check()
+    workflow_name = "player-data-collection"
+    try:
+        # Start the workflow with the given name and params
+        wf: WorkflowHandle = await app.state.temporal_client.start_workflow(
+            workflow_name,
+            args=[],
+            id=f"workflow-{_safe_slug(workflow_name)}-{os.urandom(4).hex()}",
+            task_queue=temporal_task_queue,
+        )
+        wf_result = await wf.result()
+
+        return {
+            "workflow_id": wf.id,
+            "run_id": wf.run_id,
+            "result": wf_result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {e}")
+    
 @app.post("/full-data-collection/run")
 async def invoke_full_data_workflow(username: str = os.getenv("SLEEPER_USERNAME"), league_name: str = os.getenv("SLEEPER_LEAGUE_NAME")) -> Dict[str, Any]:
     """Invoke the full-data-collection workflow for a given user/league."""

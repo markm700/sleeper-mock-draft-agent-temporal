@@ -154,6 +154,11 @@ class DummyPostgresClient:
             if record["model"] == model_name
         ]
 
+    # Alias for compatibility
+    def get_batch_upserted_by_model(self, model_name: str) -> List[Dict[str, Any]]:
+        """Alias for get_bulk_upserted_by_model for test compatibility."""
+        return self.get_bulk_upserted_by_model(model_name)
+
     def count_upserts_for_model(self, model_name: str) -> int:
         """
         Count total upserts (single + bulk) for a specific model.
@@ -171,6 +176,33 @@ class DummyPostgresClient:
             1 for record in self.upserted_bulk_records if record["model"] == model_name
         )
         return single_count + bulk_count
+
+    def count_batch_upserts_for_model(self, model_name: str) -> int:
+        """
+        Count number of batch/bulk upsert operations for a specific model.
+        
+        Note: This counts the number of upsert_records() calls, not individual records.
+        
+        Args:
+            model_name: Name of the model class
+        
+        Returns:
+            Number of batch upsert operations for that model
+        """
+        # Count unique batch operations by tracking when we added records
+        # We need to count how many times upsert_records was called for this model
+        batch_operations = 0
+        seen_indices = set()
+        
+        for idx, record in enumerate(self.upserted_bulk_records):
+            if record["model"] == model_name and idx not in seen_indices:
+                # This is part of a batch operation
+                # Count it if it's the first record or if the previous record was a different model
+                if idx == 0 or self.upserted_bulk_records[idx - 1]["model"] != model_name:
+                    batch_operations += 1
+                seen_indices.add(idx)
+        
+        return batch_operations
 
     def reset(self) -> None:
         """Clear all tracked calls (useful between tests)."""
