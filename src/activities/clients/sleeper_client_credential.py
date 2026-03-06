@@ -1,3 +1,9 @@
+"""
+Sleeper client manager for Temporal activities.
+
+Provides Sleeper REST API requests and responses to be used for the data.
+"""
+
 import os
 import httpx
 import logging

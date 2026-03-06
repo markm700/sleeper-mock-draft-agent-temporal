@@ -115,6 +115,16 @@ services:
       - TEMPORAL_HOST=${TEMPORAL_HOST}
       - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE}
       - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE}
+      - TF_CPP_MIN_LOG_LEVEL=${TF_CPP_MIN_LOG_LEVEL}
+      - TF_ENABLE_ONEDNN_OPTS=${TF_ENABLE_ONEDNN_OPTS}
+      - TF_FORCE_GPU_ALLOW_GROWTH=${TF_FORCE_GPU_ALLOW_GROWTH}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}
+      # Model paths (mount as volumes)
+      - MODEL_PATH=${MODEL_PATH}
+      - MODEL_CACHE_DIR=${MODEL_CACHE_DIR}
+    volumes:
+      - ${MODEL_PATH:-./models}:/app/models
+      - ${MODEL_CACHE_DIR:-./cache/models}:/app/.cache/models
 
 volumes:
   postgres_data:

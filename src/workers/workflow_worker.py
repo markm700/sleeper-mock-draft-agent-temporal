@@ -6,13 +6,16 @@ from temporalio.worker import Worker
 from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
+    # Service/Client Managers
     from activities.clients.postgres_client import get_postgres_client_manager
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
+    # Data Collection Workflows
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
     from workflows.league_data_collection import LeagueDataCollectionWorkflow
     from workflows.draft_data_collection import DraftDataCollectionWorkflow
     from workflows.player_data_collection import PlayerDataCollectionWorkflow
     from workflows.full_data_collection import FullDataCollectionWorkflow
+    # Data Collection Activities
     from activities.draft.get_drafts import get_league_drafts
     from activities.draft.get_draft_picks import get_specific_draft_picks
     from activities.draft.get_traded_draft_picks import get_traded_draft_picks
@@ -20,6 +23,10 @@ with workflow.unsafe.imports_passed_through():
     from activities.team_owner.get_data import get_team_owner_data
     from activities.league.get_data import get_league_data
     from activities.players.get_all_players import get_all_player_data
+    # ML Activities
+    from activities.ml.predict_player_pick import predict_draft_pick,batch_predict,get_player_features_from_db
+    from activities.ml.training_data_preparation import calculate_adp_from_picks,analyze_owner_preferences,prepare_owner_training_data,enrich_training_samples
+    from activities.ml.training import train_owner_model,evaluate_owner_model,batch_train_owner_models
 
 
 async def main():
@@ -64,7 +71,17 @@ async def main():
                     get_traded_draft_picks,
                     get_team_owner_rosters, 
                     get_team_owner_data,
-                    get_all_player_data
+                    get_all_player_data,
+                    predict_draft_pick,
+                    batch_predict,
+                    get_player_features_from_db,
+                    calculate_adp_from_picks,
+                    analyze_owner_preferences,
+                    prepare_owner_training_data,
+                    enrich_training_samples,
+                    train_owner_model,
+                    evaluate_owner_model,
+                    batch_train_owner_models,
                 ],
             )
             print("Workflow Worker started.")

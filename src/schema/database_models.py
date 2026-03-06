@@ -53,6 +53,13 @@ class User(Base):
     email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
 
+    # Personality flair (for fun!)
+    personality_fun_fact = Column(
+        Text,
+        nullable=True,
+        comment="Fun personality fact for model flair (e.g., 'Listens to Gangnam Style', 'Always wears lucky socks', 'Has a cat named Brady')"
+    )
+
     # Semi-structured data
     api_metadata = Column(JSONB, nullable=True, comment="User metadata from API")
 
@@ -214,6 +221,13 @@ class TeamOwner(Base):
     display_name = Column(String(255), nullable=False, comment="Display name in this league")
     is_owner = Column(Boolean, default=False, comment="Is this user the league commissioner?")
     is_bot = Column(Boolean, default=False)
+
+    # Personality flair (league-specific override)
+    personality_fun_fact = Column(
+        Text,
+        nullable=True,
+        comment="League-specific personality fun fact (overrides User.personality_fun_fact if set)"
+    )
 
     # League-specific metadata
     api_metadata = Column(
