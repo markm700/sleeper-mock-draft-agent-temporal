@@ -6,6 +6,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
     from activities.clients.postgres_client import get_postgres_client_manager
     from schema.database_models import League, Roster, TeamOwner, User
+    from schema.constants import TEAM_OWNER_FUN_FACT_MAP
 
 @dataclass
 class GetLeagueDataParams:
@@ -60,6 +61,12 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
             if not user_id:
                 print(f"Skipping user with missing required fields: user_id={user_id}")
                 continue
+            
+            # Add personality fun fact if available
+            if TEAM_OWNER_FUN_FACT_MAP.keys().__contains__(username):
+                personality_fun_fact = TEAM_OWNER_FUN_FACT_MAP.get(username)
+            else:
+                personality_fun_fact = "No current fun fact, please set for user in TEAM_OWNER_FUN_FACT_MAP"
 
             user_records.append({
                     "user_id": user_id,
@@ -67,6 +74,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
                     "display_name": user.get("display_name", "Unknown"),
                     "real_name": user.get("real_name"),
                     "is_bot": user.get("is_bot", False),
+                    "personality_fun_fact": personality_fun_fact
                 }
             )
             print(f"Successfully added user {user_id} for league {input.league_id} to be batch upserted into database")

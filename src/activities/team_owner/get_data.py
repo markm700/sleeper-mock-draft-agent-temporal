@@ -6,6 +6,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
     from activities.clients.postgres_client import get_postgres_client_manager
     from schema.database_models import User
+    from schema.constants import TEAM_OWNER_FUN_FACT_MAP
 
 @dataclass
 class GetTeamOwnerDataParams:
@@ -37,6 +38,12 @@ async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
         if not username:
             raise ValueError(f"Missing required fields for user {user_id}: username={username}")
         
+        # Add personality fun fact if available
+        if TEAM_OWNER_FUN_FACT_MAP.keys().__contains__(username):
+            personality_fun_fact = TEAM_OWNER_FUN_FACT_MAP.get(username)
+        else:
+            personality_fun_fact = "No current fun fact, please set for user in TEAM_OWNER_FUN_FACT_MAP"
+
         postgres.upsert_record(
             model=User,
             data={
@@ -45,6 +52,7 @@ async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
                 "display_name": user_data.get("display_name", "Unknown"),
                 "real_name": user_data.get("real_name"),
                 "is_bot": user_data.get("is_bot", False),
+                "personality_fun_fact": personality_fun_fact
             }
         )
         print(f"Successfully upserted user {input.username} to database")
