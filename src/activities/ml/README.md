@@ -1,12 +1,12 @@
 # Machine Learning Activities for Draft Prediction
 
-**TensorFlow-based ML activities for fantasy football draft prediction using Temporal workflows.**
+**PyTorch-based ML activities for fantasy football draft prediction using Temporal workflows.**
 
 ---
 
 ## Overview
 
-This module contains ML activities for training owner-specific draft prediction models and performing real-time inference during live drafts. Built with TensorFlow Functional API for multi-input architectures and optimized for production use.
+This module contains ML activities for training owner-specific draft prediction models and performing real-time inference during live drafts. Built with PyTorch nn.Module for multi-input architectures and optimized for production use.
 
 ### Architecture
 
@@ -22,7 +22,7 @@ This module contains ML activities for training owner-specific draft prediction 
 │     └─ enrich_training_samples       → ML-ready dataset     │
 │                                                               │
 │  2. Model Training (training/process/)                       │
-│     ├─ train_team_owner_model        → Train Functional API │
+│     ├─ train_team_owner_model        → Train PyTorch model  │
 │     └─ evaluate_team_owner_model     → Metrics & validation │
 │                                                               │
 │  3. Inference (.)                                            │
@@ -37,15 +37,17 @@ This module contains ML activities for training owner-specific draft prediction 
 
 ## Key Components
 
-### 📦 TensorFlow Client
-- **File:** `../clients/tensorflow_client.py`
-- **Purpose:** Singleton manager for TensorFlow models with caching
+### 📦 PyTorch Client
+- **File:** `../clients/pytorch_client.py`
+- **Purpose:** Singleton manager for PyTorch models with GPU/CPU optimization
 - **Methods:**
-  - `build_draft_prediction_model()` - Functional API model builder
+  - `build_draft_prediction_model()` - Multi-input nn.Module builder
   - `build_multi_output_model()` - Multi-output predictions
   - `load_model()` - Load with caching (10-100x faster)
-  - `save_model()` - Persist trained models
-  - `compile_model()` - Add optimizer and metrics
+  - `save_model()` - Persist trained models (state_dict or full)
+  - `create_optimizer()` - Adam, AdamW, SGD support
+  - `create_loss_function()` - CrossEntropy, BCE, MSE
+  - `get_device()` - Optimal torch.device (GPU/CPU)
 
 ### 🔄 Data Preparation Activities
 - **Location:** `training/data_prep/`
@@ -76,7 +78,7 @@ This module contains ML activities for training owner-specific draft prediction 
 
 | Guide | Purpose | When to Read |
 |-------|---------|--------------|
-| **[FUNCTIONAL_API_GUIDE.md](FUNCTIONAL_API_GUIDE.md)** | Learn Functional API patterns | Building or modifying models |
+| **[FUNCTIONAL_API_GUIDE.md](FUNCTIONAL_API_GUIDE.md)** | Learn PyTorch nn.Module patterns | Building or modifying models |
 | **[OPTIMIZATION_GUIDE.md](OPTIMIZATION_GUIDE.md)** | Deep-dive optimization techniques | Improving performance |
 | **[OPTIMIZATION_QUICK_REFERENCE.md](OPTIMIZATION_QUICK_REFERENCE.md)** | At-a-glance optimization table | Quick lookup during development |
 | **[functional_api_examples.py](functional_api_examples.py)** | Code examples and patterns | Learning by example |
@@ -85,13 +87,14 @@ This module contains ML activities for training owner-specific draft prediction 
 
 **1. Training a model:**
 ```python
+import torch
 from temporalio import workflow
-from activities.clients.tensorflow_client import get_tensorflow_model_manager
+from activities.clients.pytorch_client import get_pytorch_model_manager
 
 # In your training activity
-manager = get_tensorflow_model_manager()
+manager = get_pytorch_model_manager()
 
-# Build Functional API model (multi-input)
+# Build PyTorch model (multi-input)
 model = manager.build_draft_prediction_model(
     num_players=500,
     player_feature_dim=50,
@@ -101,16 +104,25 @@ model = manager.build_draft_prediction_model(
     dropout_rate=0.3
 )
 
-# Compile
-model = manager.compile_model(model, learning_rate=0.001)
+# Create optimizer and loss function
+optimizer = manager.create_optimizer(model, optimizer_type="Adam", lr=0.001)
+loss_fn = manager.create_loss_function("CrossEntropyLoss")
 
-# Train with multiple inputs
-history = model.fit(
-    [player_features, owner_features, draft_context],
-    pick_labels,
-    epochs=50,
-    callbacks=[early_stopping, reduce_lr]
-)
+# Training loop
+model.train()
+for epoch in range(50):
+    optimizer.zero_grad()
+    
+    # Forward pass
+    outputs = model(player_features, owner_features, draft_context)
+    loss = loss_fn(outputs, pick_labels)
+    
+    # Backward pass
+    loss.backward()
+    optimizer.step()
+    
+    if epoch % 10 == 0:
+        print(f"Epoch {epoch}, Loss: {loss.item():.4f}")
 
 # Save with caching
 manager.save_model(model, f"owner_{user_id}_v1", cache=True)
@@ -118,23 +130,32 @@ manager.save_model(model, f"owner_{user_id}_v1", cache=True)
 
 **2. Making predictions:**
 ```python
+import torch
+import numpy as np
+
 # In your inference activity
-manager = get_tensorflow_model_manager()
+manager = get_pytorch_model_manager()
 
 # Load model (cached in memory after first load)
 model = manager.load_model(f"owner_{user_id}_v1")
 # ✅ First call: ~500ms (disk)
 # ✅ Subsequent: ~0.5ms (cache)
 
-# Prepare features
-features = [player_X, owner_X, draft_X]
+# Prepare features (convert numpy to tensors)
+device = manager.get_device()
+player_X = torch.tensor(player_features, dtype=torch.float32).to(device)
+owner_X = torch.tensor(owner_features, dtype=torch.float32).to(device)
+draft_X = torch.tensor(draft_context, dtype=torch.float32).to(device)
 
-# Predict (verbose=0 for speed)
-predictions = model.predict(features, verbose=0)
+# Predict (no gradient computation)
+model.eval()
+with torch.no_grad():
+    predictions = model(player_X, owner_X, draft_X)
 
 # Get top pick
-top_pick_idx = np.argmax(predictions[0])
-confidence = predictions[0][top_pick_idx]
+predictions_np = predictions.cpu().numpy()
+top_pick_idx = np.argmax(predictions_np[0])
+confidence = predictions_np[0][top_pick_idx]
 ```
 
 ---
@@ -142,8 +163,8 @@ confidence = predictions[0][top_pick_idx]
 ## Performance Benchmarks
 
 ### Training
-- **Sequential API (old):** 10-15 minutes
-- **Functional API (new):** 2-3 minutes ⚡ **5x faster**
+- **Sequential model (old):** 10-15 minutes
+- **PyTorch nn.Module (new):** 2-3 minutes ⚡ **5x faster**
 - **With Mixed Precision (GPU):** 1-2 minutes ⚡ **10x faster**
 
 ### Inference
@@ -162,12 +183,12 @@ confidence = predictions[0][top_pick_idx]
 ### 🔥 Critical (Implement First)
 
 1. **Model Caching** (`predict_player_pick.py`)
-   - Use `TensorFlowModelManager.load_model()`
+   - Use `PyTorchModelManager.load_model()`
    - Impact: **100x faster inference**
    - Time: 15 minutes
 
-2. **Functional API Migration** (`train_team_owner_model.py`)
-   - Replace Sequential with `build_draft_prediction_model()`
+2. **PyTorch nn.Module Architecture** (`train_team_owner_model.py`)
+   - Use `build_draft_prediction_model()` with multi-input
    - Impact: **Better architecture, 2x accuracy**
    - Time: 2 hours
 
@@ -191,12 +212,12 @@ confidence = predictions[0][top_pick_idx]
 ### 🎯 Advanced
 
 6. **Mixed Precision Training** (GPU only)
-   - Enable FP16 with `mixed_precision.Policy('mixed_float16')`
+   - Enable FP16 with `torch.cuda.amp.autocast()`
    - Impact: **2-3x faster training**
    - Time: 1 hour
 
-7. **tf.data Pipeline**
-   - Use `tf.data.Dataset` with prefetch
+7. **DataLoader Pipeline**
+   - Use `torch.utils.data.DataLoader` with prefetch
    - Impact: **2x training speedup**
    - Time: 2 hours
 
@@ -225,17 +246,20 @@ confidence = predictions[0][top_pick_idx]
 - Draft state: pick_number, picks_remaining, round_number
 - Competition: position_scarcity, tier_breaks
 
-### Model Architecture (Functional API)
+### Model Architecture (PyTorch nn.Module)
 
 ```
-Player Features (50)  ──→ Dense(128) ──┐
-                         BatchNorm      │
-                                        │
-Owner Features (20)   ──→ Dense(64)  ──┤
-                         BatchNorm      ├─→ Concat ──→ Dense(256) ──→ Dropout(0.3)
-                                        │              Dense(128) ──→ Dropout(0.2)
-Draft Context (15)    ──→ Dense(32)  ──┘              Dense(64)  ──→ Softmax(500)
-                         BatchNorm
+Player Features (50)  ──→ Linear(128) ──┐
+                         ReLU          │
+                         BatchNorm1d   │
+                                       │
+Owner Features (20)   ──→ Linear(64)  ──┤
+                         ReLU          ├─→ Concat ──→ Linear(256) ──→ Dropout(0.3)
+                         BatchNorm1d   │              Linear(128) ──→ Dropout(0.2)
+                                       │              Linear(64)  ──→ Softmax(500)
+Draft Context (15)    ──→ Linear(32)  ──┘
+                         ReLU
+                         BatchNorm1d
 ```
 
 **Output:** Probability distribution over 500 players
@@ -273,13 +297,14 @@ python src/activities/ml/functional_api_examples.py
 # Model storage
 MODEL_PATH=/app/models            # Where trained models are saved
 
-# TensorFlow settings
-TF_CPP_MIN_LOG_LEVEL=2           # Reduce TensorFlow logging
-TF_ENABLE_ONEDNN_OPTS=1          # Enable oneDNN optimizations (CPU)
+# PyTorch settings
+OMP_NUM_THREADS=4                 # OpenMP threads for CPU operations
+MKL_NUM_THREADS=4                 # MKL threads for CPU operations
+PYTORCH_ENABLE_MPS_FALLBACK=1    # Enable fallback for unsupported ops (macOS)
 
 # GPU settings (if available)
-CUDA_VISIBLE_DEVICES=0           # Use first GPU
-TF_FORCE_GPU_ALLOW_GROWTH=true   # Enable memory growth
+CUDA_VISIBLE_DEVICES=0            # Use first GPU
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512  # Optimize CUDA memory
 ```
 
 ---
@@ -323,28 +348,34 @@ activities/ml/
 ### Issue: "OOM (Out of Memory) during training"
 **Solution:** 
 - Reduce batch size: `batch_size=32` → `batch_size=16`
-- Use `tf.keras.backend.clear_session()` after training
-- Enable GPU memory growth in `tensorflow_client.py`
+- Use `torch.cuda.empty_cache()` after training
+- Enable gradient checkpointing for large models
+- Call `model.to('cpu')` when not training
 
 ### Issue: "Slow inference (>100ms per prediction)"
 **Solution:**
-- Use model caching: `manager.load_model()` instead of `tf.keras.models.load_model()`
-- Set `verbose=0` in `model.predict()`
+- Use model caching: `manager.load_model()` instead of `torch.load()`
+- Set `model.eval()` before inference
+- Use `torch.no_grad()` context manager
 - Use batch predictions for multiple owners
 
 ### Issue: "Training not converging"
 **Solution:**
-- Add BatchNormalization after each Dense layer
-- Reduce learning rate: `learning_rate=0.0005`
-- Add L2 regularization: `kernel_regularizer=tf.keras.regularizers.l2(0.001)`
+- Add BatchNorm1d after each Linear layer
+- Reduce learning rate: `lr=0.0005`
+- Add L2 regularization: `weight_decay=0.001` in optimizer
 - Check data quality: remove outliers, normalize features
+- Use gradient clipping: `torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)`
 
 ### Issue: "GPU not detected"
 **Solution:**
 ```python
-import tensorflow as tf
-print(tf.config.list_physical_devices('GPU'))
-# If empty: install CUDA toolkit + cuDNN or use CPU
+import torch
+print(f"CUDA available: {torch.cuda.is_available()}")
+print(f"CUDA device count: {torch.cuda.device_count()}")
+if torch.cuda.is_available():
+    print(f"Current device: {torch.cuda.get_device_name(0)}")
+# If False: install CUDA toolkit or use CPU
 ```
 
 ---
@@ -378,36 +409,36 @@ When adding new ML activities:
    - Performance notes
    - Related activities
 
-4. **Import TensorFlow safely:**
+4. **Import PyTorch safely:**
    ```python
    from temporalio import workflow
    
    with workflow.unsafe.imports_passed_through():
-       import tensorflow as tf
-       from activities.clients.tensorflow_client import get_tensorflow_model_manager
+       import torch
+       from activities.clients.pytorch_client import get_pytorch_model_manager
    ```
 
-5. **Use TensorFlowModelManager:**
-   - Don't call `tf.keras.models.load_model()` directly
+5. **Use PyTorchModelManager:**
+   - Don't call `torch.load()` directly
    - Use `manager.load_model()` for caching
    - Use `manager.build_draft_prediction_model()` for new models
 
 6. **Optimize for production:**
    - Model caching for inference
-   - Early stopping for training
+   - Early stopping for training (custom logic)
    - Bulk queries for data prep
-   - `verbose=0` for predictions
-   - `float32` for features
+   - `model.eval()` and `torch.no_grad()` for predictions
+   - `float32` for features (PyTorch default)
 
 ---
 
 ## Roadmap
 
 ### Phase 1: Core Optimization (Current)
-- [x] TensorFlow client with caching
-- [x] Functional API support
+- [x] PyTorch client with caching
+- [x] nn.Module multi-input architecture
 - [x] Optimization guides
-- [ ] Migrate train_team_owner_model to Functional API
+- [ ] Migrate train_team_owner_model to PyTorch
 - [ ] Add model caching to all inference activities
 - [ ] Benchmark before/after optimization
 
@@ -421,7 +452,7 @@ When adding new ML activities:
 ### Phase 3: Production Readiness
 - [ ] Model monitoring and drift detection
 - [ ] Automated retraining workflows
-- [ ] Model serving with TensorFlow Serving
+- [ ] Model serving with TorchServe
 - [ ] Performance profiling and optimization
 - [ ] Load testing and stress testing
 
@@ -429,16 +460,16 @@ When adding new ML activities:
 
 ## Resources
 
-### TensorFlow Documentation
-- [Keras Functional API Guide](https://www.tensorflow.org/guide/keras/functional)
-- [Performance Optimization](https://www.tensorflow.org/guide/performance)
-- [Mixed Precision Training](https://www.tensorflow.org/guide/mixed_precision)
-- [tf.data Pipeline](https://www.tensorflow.org/guide/data_performance)
+### PyTorch Documentation
+- [PyTorch nn.Module Guide](https://pytorch.org/docs/stable/notes/modules.html)
+- [PyTorch Performance Tuning](https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html)
+- [Mixed Precision Training](https://pytorch.org/docs/stable/amp.html)
+- [DataLoader Best Practices](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html)
 
 ### Project Documentation
 - [Workflow Instructions](../../../../.github/instructions/workflows.instructions.md)
 - [Activity Instructions](../../../../.github/instructions/activities.instructions.md)
-- [TensorFlow-Temporal Skill](../../../../.github/skills/tensorflow-temporal/SKILL.md)
+- [PyTorch-Temporal Skill](../../../../.github/skills/pytorch-temporal/SKILL.md)
 
 ### External Resources
 - [Fantasy Football ADP Analysis](https://www.fantasypros.com/nfl/adp/)
@@ -457,5 +488,5 @@ See [LICENSE.md](../../../../LICENSE.md) in project root.
 For questions or issues:
 1. Check the optimization guides in this directory
 2. Review code examples in `functional_api_examples.py`
-3. Consult [TensorFlow documentation](https://www.tensorflow.org/)
+3. Consult [PyTorch documentation](https://pytorch.org/docs/)
 4. Open an issue in the project repository

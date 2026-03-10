@@ -115,16 +115,23 @@ services:
       - TEMPORAL_HOST=${TEMPORAL_HOST}
       - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE}
       - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE}
-      - TF_CPP_MIN_LOG_LEVEL=${TF_CPP_MIN_LOG_LEVEL}
-      - TF_ENABLE_ONEDNN_OPTS=${TF_ENABLE_ONEDNN_OPTS}
-      - TF_FORCE_GPU_ALLOW_GROWTH=${TF_FORCE_GPU_ALLOW_GROWTH}
-      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}
-      # Model paths (mount as volumes)
-      - MODEL_PATH=${MODEL_PATH}
-      - MODEL_CACHE_DIR=${MODEL_CACHE_DIR}
+      # PyTorch / GPU
+      - PYTORCH_NUM_THREADS=${PYTORCH_NUM_CPU_THREADS:-4}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - DATALOADER_NUM_WORKERS=${DATALOADER_NUM_WORKERS:-4}
+      # Model paths (mounted as volumes below)
+      - MODEL_PATH=${MODEL_PATH:-/app/models}
+      - MODEL_CACHE_DIR=${MODEL_CACHE_DIR:-/app/models/cache}
     volumes:
       - ${MODEL_PATH:-./models}:/app/models
-      - ${MODEL_CACHE_DIR:-./cache/models}:/app/.cache/models
+      - ${MODEL_CACHE_DIR:-./models/cache}:/app/models/cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
 volumes:
   postgres_data:
