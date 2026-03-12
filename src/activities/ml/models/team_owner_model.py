@@ -13,20 +13,6 @@ import torch
 import torch.nn as nn
 from typing import List, Tuple
 
-
-# Personality trait names and indices — a stable contract for feature vectors.
-PERSONALITY_TRAITS: List[str] = [
-    "upside_seeking",           # 0: Preference for boom-or-bust players (0=floor, 1=ceiling)
-    "floor_preference",         # 1: Preference for safe, consistent players
-    "adp_reach_tendency",       # 2: Tendency to reach early or wait (0=waits, 0.5=neutral, 1=reaches)
-    "injury_tolerance",         # 3: Willingness to draft risky/injured players (0=avoids, 1=accepts)
-    "rookie_bias",              # 4: Bias toward drafting rookies (0=avoids, 0.5=neutral, 1=targets)
-    "name_recognition",         # 5: Drafts recognizable names vs. stats (0=pure stats, 1=name-first)
-    "contrarian",               # 6: Goes against consensus ADP (0=follows crowd, 1=contrarian)
-    "positional_stubbornness",  # 7: Sticks to positional strategy vs. best player available
-]
-NUM_PERSONALITY_TRAITS: int = len(PERSONALITY_TRAITS)
-
 # Owner profile feature names — derived from historical draft data.
 OWNER_PROFILE_FEATURES: List[str] = [
     # Position pick rates by round tier (fraction of picks in that tier spent on each position)
@@ -139,7 +125,7 @@ class TeamOwnerDraftModel(nn.Module):
         player_feature_dim: int,
         owner_profile_dim: int,
         draft_context_dim: int,
-        personality_dim: int = NUM_PERSONALITY_TRAITS,
+        personality_dim: int = 1,
         num_positions: int = NUM_POSITIONS,
         hidden_dim: int = 256,
         dropout_rate: float = 0.3,
@@ -151,7 +137,7 @@ class TeamOwnerDraftModel(nn.Module):
             player_feature_dim: Number of per-player features (e.g. 9)
             owner_profile_dim:  Number of historical profile features (e.g. 26)
             draft_context_dim:  Number of draft-state features (e.g. 8)
-            personality_dim:    Number of personality traits (default 8)
+            personality_dim:    Number of personality traits (default 1)
             num_positions:      Number of fantasy positions (default 6: QB/RB/WR/TE/K/DEF)
             hidden_dim:         Width of the shared fusion layers
             dropout_rate:       Dropout probability for regularization

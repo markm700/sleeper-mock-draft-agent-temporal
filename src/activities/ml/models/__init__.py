@@ -1,1 +1,1 @@
-"""PyTorch model architectures for individual Team Owners."""
+"""PyTorch model architectures for use in activities."""

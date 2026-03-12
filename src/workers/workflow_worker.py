@@ -9,6 +9,7 @@ with workflow.unsafe.imports_passed_through():
     # Service/Client Managers
     from activities.clients.postgres_client import get_postgres_client_manager
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
+    from activities.clients.pytorch_client import get_pytorch_model_manager
     # Data Collection Workflows
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
     from workflows.league_data_collection import LeagueDataCollectionWorkflow
@@ -24,9 +25,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.league.get_data import get_league_data
     from activities.players.get_all_players import get_all_player_data
     # ML Activities
-    from activities.ml.predict_player_pick import predict_draft_pick,batch_predict,get_player_features_from_db
-    from activities.ml.training_data_preparation import calculate_adp_from_picks,analyze_owner_preferences,prepare_owner_training_data,enrich_training_samples
-    from activities.ml.training import train_owner_model,evaluate_owner_model,batch_train_owner_models
+    from activities.ml.predictions.predict_player_pick import predict_owner_draft_pick, batch_predict_owner, get_player_features_from_db
 
 
 async def main():
@@ -51,6 +50,7 @@ async def main():
         sleeper = get_sleeper_client_manager()
         postgres = get_postgres_client_manager()
         postgres.create_all_tables()  # Only for development/testing - use Alembic migrations in production!
+        pytorch_client = get_pytorch_model_manager()
 
         try:
             print(f"Starting Workflow Worker...")
@@ -72,16 +72,9 @@ async def main():
                     get_team_owner_rosters, 
                     get_team_owner_data,
                     get_all_player_data,
-                    predict_draft_pick,
-                    batch_predict,
+                    predict_owner_draft_pick,
+                    batch_predict_owner,
                     get_player_features_from_db,
-                    calculate_adp_from_picks,
-                    analyze_owner_preferences,
-                    prepare_owner_training_data,
-                    enrich_training_samples,
-                    train_owner_model,
-                    evaluate_owner_model,
-                    batch_train_owner_models,
                 ],
             )
             print("Workflow Worker started.")
@@ -91,6 +84,7 @@ async def main():
             print(f"Workflow Worker failed to start: {e}")
         finally:
             # Ensure clients used are closed
+            pytorch_client.close()
             await sleeper.close()
             postgres.drop_all_tables()  # Only for development/testing - remove in production!
             await postgres.close()

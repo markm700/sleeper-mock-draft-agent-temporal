@@ -150,8 +150,7 @@ class PyTorchModelManager:
             "is_training": model.training,
         }
     
-    # ========== Model Building Methods ==========
-    
+    # Model Building and Training Utilities
     def build_draft_prediction_model(
         self,
         num_players: int,
@@ -456,8 +455,7 @@ class PyTorchModelManager:
         else:
             raise ValueError(f"Unknown loss type: {loss_type}")
 
-    # ========== GPU Training Utilities ==========
-
+    # GPU Training Utilities
     def create_grad_scaler(self) -> Optional[torch.cuda.amp.GradScaler]:
         """
         Create a gradient scaler for Automatic Mixed Precision (AMP) training.
@@ -611,6 +609,58 @@ class PyTorchModelManager:
         """
         device = self.get_device()
         return tuple(t.to(device, non_blocking=non_blocking) for t in tensors)
+
+    # End of Lifecycle
+    def close(self) -> None:
+        """
+        Gracefully shut down the PyTorch model manager.
+
+        Performs an ordered teardown so the process can exit cleanly without
+        leaking GPU memory or leaving CUDA streams in flight:
+
+        1. Move every cached model to CPU so CUDA memory is freed before the
+           cache dict is cleared.  This prevents CUDA context errors if the
+           runtime starts tearing down before Python GC runs.
+        2. Delete all model references from the cache.
+        3. Synchronize the CUDA device — waits for any in-flight kernels to
+           finish (``torch.cuda.synchronize``).
+        4. Release the GPU memory pool back to the OS
+           (``torch.cuda.empty_cache``).
+        5. Reset peak memory statistics so any post-shutdown memory checks
+           start from a clean baseline.
+        6. Reset the singleton ``_instance`` so the manager can be
+           re-initialized cleanly in tests or worker restarts.
+
+        Steps 3-5 are no-ops on CPU-only hosts.
+        """
+        model_names = list(self._models.keys())
+        print(f"PyTorch shutdown: unloading {len(model_names)} cached model(s)...")
+
+        for name in model_names:
+            try:
+                # Move to CPU first to free GPU memory before deleting the reference
+                self._models[name].cpu()
+                del self._models[name]
+                print(f"  Unloaded model: {name}")
+            except Exception as e:
+                print(f"  Warning: could not unload model '{name}': {e}")
+
+        self._models.clear()
+
+        if torch.cuda.is_available():
+            # Wait for all CUDA kernels to complete before releasing memory
+            torch.cuda.synchronize()
+            # Return all unoccupied cached memory to the OS allocator
+            torch.cuda.empty_cache()
+            # Reset peak memory stats for a clean slate
+            torch.cuda.reset_peak_memory_stats()
+            print("PyTorch shutdown: CUDA synchronized and cache cleared")
+        else:
+            print("PyTorch shutdown: CPU-only, no CUDA cleanup needed")
+
+        # Reset singleton so the manager can be re-created if the worker restarts
+        PyTorchModelManager._instance = None
+        print("PyTorch model manager closed")
 
 
 def get_pytorch_model_manager() -> PyTorchModelManager:
