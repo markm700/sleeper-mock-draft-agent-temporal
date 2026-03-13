@@ -6,13 +6,11 @@ Provides PyTorch engine, model loading, and model caching.
 
 import os
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple
 import torch
 import torch.nn as nn
 
-@dataclass
 class PyTorchModelManager:
     """
     Singleton manager for PyTorch models.
