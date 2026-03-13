@@ -1,5 +1,6 @@
 import os
 from contextlib import asynccontextmanager
+from enum import Enum
 from typing import Any, Dict
 from fastapi import FastAPI, HTTPException
 from temporalio.client import Client, WorkflowHandle
@@ -146,6 +147,76 @@ async def invoke_full_data_workflow(username: str = os.getenv("SLEEPER_USERNAME"
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{username}-{_safe_slug(league_name)}-{os.urandom(4).hex()}",
+            task_queue=temporal_task_queue,
+        )
+        wf_result = await wf.result()
+
+        return {
+            "workflow_id": wf.id,
+            "run_id": wf.run_id,
+            "result": wf_result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {e}")
+
+class ModelManagementWorkflowAction(str, Enum):
+    BUILD = "build"
+    REBUILD = "rebuild"
+    STATUS = "status"
+    
+@app.post("/model-management/run")
+async def invoke_model_management_workflow(model_name: str, action: ModelManagementWorkflowAction = ModelManagementWorkflowAction.STATUS) -> Dict[str, Any]:
+    """Invoke the model-management workflow to build, rebuild, or check status of a model."""
+    connection_check()
+    workflow_name = "model-management"
+    try:
+        params = {
+            "model_name": model_name,
+            "action": action,
+        }
+        wf: WorkflowHandle = await app.state.temporal_client.start_workflow(
+            workflow_name,
+            args=[params],
+            id=f"workflow-{_safe_slug(workflow_name)}-{_safe_slug(model_name)}-{_safe_slug(action)}-{os.urandom(4).hex()}",
+            task_queue=temporal_task_queue,
+        )
+        wf_result = await wf.result()
+
+        return {
+            "workflow_id": wf.id,
+            "run_id": wf.run_id,
+            "result": wf_result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {e}")
+
+@app.post("/model-training/run")
+async def invoke_model_training_workflow(
+    league_id: str,
+    user_id: str,
+    model_name: str = "",
+    season: str | None = None,
+    epochs: int = 50,
+    learning_rate: float = 0.001,
+    rebuild_model: bool = False,
+) -> Dict[str, Any]:
+    """Invoke the model-training workflow to train a team owner draft prediction model."""
+    connection_check()
+    workflow_name = "model-training"
+    try:
+        params = {
+            "league_id": league_id,
+            "user_id": user_id,
+            "model_name": model_name,
+            "season": season,
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "rebuild_model": rebuild_model,
+        }
+        wf: WorkflowHandle = await app.state.temporal_client.start_workflow(
+            workflow_name,
+            args=[params],
+            id=f"workflow-{_safe_slug(workflow_name)}-{user_id}-{league_id}-{os.urandom(4).hex()}",
             task_queue=temporal_task_queue,
         )
         wf_result = await wf.result()

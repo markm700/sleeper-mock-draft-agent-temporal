@@ -8,13 +8,26 @@ with workflow.unsafe.imports_passed_through():
     from schema.database_models import DraftPick
 @dataclass
 class GetSpecificDraftPicksParams:
-    """Parameters for fetching picks from a specific draft."""
+    """
+    Parameters for fetching picks from a specific draft.
+
+    Fields:
+        draft_id: Sleeper draft identifier.
+    """
 
     draft_id: str
 
 @activity.defn(name="get_specific_draft_picks")
 async def get_specific_draft_picks(input: GetSpecificDraftPicksParams) -> Dict[str, Any]:
-    """Activity to fetch all picks for a given draft ID."""
+    """
+    Fetch all picks for a specific draft and upsert to the database.
+
+    Args:
+        input: GetSpecificDraftPicksParams with draft_id.
+
+    Returns:
+        Dict[str, Any]: {"draft_picks": [...]} raw list of pick dicts from Sleeper.
+    """
     sleeper = get_sleeper_client_manager()
     postgres = get_postgres_client_manager()
 

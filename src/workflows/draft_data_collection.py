@@ -11,11 +11,12 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class DraftDataCollectionWorkflowParams:
-    """Input parameters for the draft data collection workflow.
+    """
+    Input parameters for the draft data collection workflow.
 
-    Attributes:
+    Fields:
         league_id: Sleeper league identifier to collect draft data for.
-        season: Season year to filter traded draft picks (defaults to 2025).
+        season: Season year to filter traded draft picks (default "2025").
     """
 
     league_id: str
@@ -27,11 +28,17 @@ class DraftDataCollectionWorkflow:
 
     @workflow.run
     async def run(self, params: DraftDataCollectionWorkflowParams) -> Dict[str, Any]:
-        """Execute the draft data collection workflow.
+        """
+        Execute the draft data collection workflow.
 
-        This workflow runs activities to fetch league drafts and specific draft
-        picks (including traded picks) for the given league, and aggregates
-        their results into a single response payload.
+        Fetches league drafts, specific draft picks, and traded draft picks
+        for the given league and aggregates results into a single payload.
+
+        Args:
+            params: DraftDataCollectionWorkflowParams with league_id and season.
+
+        Returns:
+            Dict[str, Any]: {"activity_data": [{"activity": str, ...}, ...]}
         """
         wf_hex = workflow.info().run_id[-4:]
         workflow_activities = []

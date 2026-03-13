@@ -137,7 +137,7 @@ class TeamOwnerDraftModel(nn.Module):
             player_feature_dim: Number of per-player features (e.g. 9)
             owner_profile_dim:  Number of historical profile features (e.g. 26)
             draft_context_dim:  Number of draft-state features (e.g. 8)
-            personality_dim:    Number of personality traits (default 1)
+            personality_dim:    Number of personality traits (default 8)
             num_positions:      Number of fantasy positions (default 6: QB/RB/WR/TE/K/DEF)
             hidden_dim:         Width of the shared fusion layers
             dropout_rate:       Dropout probability for regularization

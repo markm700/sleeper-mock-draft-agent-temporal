@@ -10,14 +10,28 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class GetTeamOwnerDataParams:
-    """Parameters for fetching data about a team owner in a league."""
+    """
+    Parameters for fetching data about a team owner.
+
+    Args:
+        username: Sleeper username for the team owner.
+        league_name: Human-readable league name used to filter leagues.
+    """
 
     username: str
     league_name: str
 
 @activity.defn(name="get_team_owner_data")
 async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
-    """Activity to fetch team-owner metadata and their leagues."""
+    """
+    Fetch team owner metadata and their leagues from the Sleeper API.
+
+    Args:
+        input: GetTeamOwnerDataParams with username and league_name.
+
+    Returns:
+        Dict[str, Any]: {"user_id": str, "user_data": {...}, "user_leagues": {season: [...]}}
+    """
 
     sleeper = get_sleeper_client_manager()
     postgres = get_postgres_client_manager()

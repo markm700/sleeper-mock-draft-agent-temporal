@@ -9,14 +9,28 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class GetTradedDraftPicksParams:
-    """Parameters for fetching traded picks for a league."""
+    """
+    Parameters for fetching traded picks for a league.
+
+    Fields:
+        league_id: Sleeper league identifier.
+        season: Season year to filter picks, e.g. "2025".
+    """
 
     league_id: str
     season: str = "2025"
 
 @activity.defn(name="get_traded_draft_picks")
 async def get_traded_draft_picks(input: GetTradedDraftPicksParams) -> Dict[str, Any]:
-    """Activity to fetch all traded draft picks for a given league, filtered by season."""
+    """
+    Fetch traded draft picks for a league, filter by season, and upsert to the database.
+
+    Args:
+        input: GetTradedDraftPicksParams with league_id and season.
+
+    Returns:
+        Dict[str, Any]: {"traded_draft_picks": [...]} season-filtered list from Sleeper.
+    """
     sleeper = get_sleeper_client_manager()
     postgres = get_postgres_client_manager()
 

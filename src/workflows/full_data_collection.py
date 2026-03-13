@@ -10,9 +10,14 @@ with workflow.unsafe.imports_passed_through():
     from workflows.player_data_collection import PlayerDataCollectionWorkflow
 
 def _safe_slug(text: str | None) -> str:
-    """Create a simple, deterministic slug for workflow IDs.
+    """
+    Build a safe slug from text for use in workflow IDs.
 
-    Uses only lowercase ASCII letters, digits, and dashes.
+    Args:
+        text: Input string to slugify. None returns "value".
+
+    Returns:
+        str: Lowercase alphanumeric slug with underscores, e.g. "my_league_2025".
     """
 
     if not text:
@@ -29,9 +34,10 @@ def _safe_slug(text: str | None) -> str:
 
 @dataclass
 class FullDataCollectionWorkflowParams:
-    """Input parameters for the combined team owner + league data workflow.
+    """
+    Input parameters for the full data collection workflow.
 
-    Attributes:
+    Fields:
         username: Sleeper username for the team owner.
         league_name: Human-readable league name used to filter leagues.
     """
@@ -42,15 +48,33 @@ class FullDataCollectionWorkflowParams:
 
 @workflow.defn(name="full-data-collection")
 class FullDataCollectionWorkflow:
-    """Workflow that chains team owner data collection with league data collection.
+    """
+    Workflow that chains team-owner, league, and player data collection.
 
-    It first runs the team-owner-data-collection workflow to resolve the
-    appropriate league for the given user and league name, then runs the
-    league-data-collection workflow for that league.
+    Resolves the league_id for the given username and league_name, then runs
+    team-owner-data-collection, league-data-collection, and player-data-collection
+    as sequential child workflows.
     """
 
     @workflow.run
     async def run(self, params: FullDataCollectionWorkflowParams) -> Dict[str, Any]:
+        """
+        Execute the full data collection workflow.
+
+        Chains three child workflows: team-owner, league, and player data collection.
+        Resolves the target league_id by matching league_name in the owner's leagues.
+
+        Args:
+            params: FullDataCollectionWorkflowParams with username and league_name.
+
+        Returns:
+            Dict[str, Any]: {
+                "username": str,
+                "league_name": str,
+                "league_id": str,
+                "workflow_data": [...],
+            }
+        """
         wf_hex = workflow.info().run_id[-4:]
         child_workflow_results: list[Dict[str, Any]] = []
         child_retry_policy = RetryPolicy(

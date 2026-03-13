@@ -30,20 +30,17 @@ RANDOM_PERSONALITY_TRAITS = {
 
 def get_personality_trait(session: Session, user_id: str = None) -> str:
     """
-    Return the personality trait vector for a user.
+    Return the personality trait name for a user.
 
-    Resolution order:
-        1. TeamOwner.personality_traits — league-specific traits (most recent entry)
-        2. User.personality_traits — global/default traits for the user
-        3. Random — one value per trait in RANDOM_PERSONALITY_TRAITS, sampled
-           uniformly from [0, 1]
+    Looks up the trait from TeamOwner (league-specific), then User (global),
+    then falls back to a random choice from RANDOM_PERSONALITY_TRAITS.
 
     Args:
-        user_id: Sleeper user_id to look up.
         session: Active SQLAlchemy session.
+        user_id: Sleeper user_id to look up. None returns a random trait.
 
     Returns:
-        Dict mapping each trait name (e.g. "upside_seeking") to a float in [0, 1].
+        str: Trait name, e.g. "upside_seeking" or "contrarian".
     """
     if user_id is not None:
         # 1. Check TeamOwner (league-specific traits take precedence)
@@ -65,9 +62,24 @@ def get_personality_trait(session: Session, user_id: str = None) -> str:
     return get_random_personality_trait()
 
 def get_random_personality_trait() -> str:
+    """
+    Return a randomly selected trait name from RANDOM_PERSONALITY_TRAITS.
+
+    Returns:
+        str: One of the trait name values, e.g. "contrarian" or "rookie_bias".
+    """
     return random.choice(list(RANDOM_PERSONALITY_TRAITS.values()))
 
 def get_personality_trait_vector(personality_trait: str) -> Dict[str, float]:
+    """
+    Build a personality trait dict with the named trait set to 0.7 and others randomized.
+
+    Args:
+        personality_trait: Trait name to pin at 0.7, e.g. "contrarian".
+
+    Returns:
+        Dict[str, float]: Mapping from each trait name to a float value in [0, 1].
+    """
     vector = {personality_trait: float(0.7)}
     vector.update({trait: random.random() for trait in RANDOM_PERSONALITY_TRAITS.values() if trait != personality_trait})
     return vector
