@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -10,7 +9,7 @@ from activities.ml.models.manage_model import (
     build_owner_model,
     get_model_status,
 )
-from testing.mocks import DummyPyTorchModelManager
+from testing.mocks import DummyMLModelManager
 
 
 # ---------------------------------------------------------------------------
@@ -23,30 +22,23 @@ async def test_build_owner_model_creates_fresh_model(
     tmp_path,
 ) -> None:
     """build_owner_model builds and caches a new model when none exists on disk."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    dummy_ml = DummyMLModelManager()
 
     monkeypatch.setattr(
-        "activities.ml.models.manage_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
     params = BuildOwnerModelParams(model_name="test_model_v1")
     result = await build_owner_model(params)
 
-    # One build call should have been made
-    assert len(dummy_pytorch.build_calls) == 1
-    assert dummy_pytorch.build_calls[0]["model_name"] == "test_model_v1"
-
-    # Model should now be cached
-    assert "test_model_v1" in dummy_pytorch._models
-
-    # Result must indicate the model was created
     assert result["model_name"] == "test_model_v1"
     assert result["created"] is True
-    assert result["total_params"] > 0
-    assert result["trainable_params"] > 0
     assert "model_path" in result
+
+    # Model should now be cached
+    assert "test_model_v1" in dummy_ml._models
 
 
 @pytest.mark.asyncio
@@ -55,31 +47,25 @@ async def test_build_owner_model_skips_existing_when_overwrite_false(
     tmp_path,
 ) -> None:
     """build_owner_model returns existing info without rebuilding when overwrite=False."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    dummy_ml = DummyMLModelManager()
 
-    # Pre-build the model so it is already cached
-    dummy_pytorch.build_team_owner_model(
-        player_feature_dim=9,
-        owner_profile_dim=26,
-        draft_context_dim=8,
-        model_name="existing_model",
-    )
+    # Pre-cache a model
+    from activities.ml.models.team_owner_model import TeamOwnerDraftModel
+    dummy_ml._models["existing_model"] = TeamOwnerDraftModel()
 
     monkeypatch.setattr(
-        "activities.ml.models.manage_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
     # Create a fake model file so the activity believes it exists on disk
-    model_file = tmp_path / "existing_model.pt"
+    model_file = tmp_path / "existing_model.joblib"
     model_file.write_bytes(b"fake-weights")
 
     params = BuildOwnerModelParams(model_name="existing_model", overwrite=False)
     result = await build_owner_model(params)
 
-    # No additional build call should have been made (already had 1 from setup above)
-    assert len(dummy_pytorch.build_calls) == 1
     assert result["created"] is False
 
 
@@ -89,23 +75,21 @@ async def test_build_owner_model_overwrite_rebuilds(
     tmp_path,
 ) -> None:
     """build_owner_model rebuilds when overwrite=True even if the file exists."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    dummy_ml = DummyMLModelManager()
 
     monkeypatch.setattr(
-        "activities.ml.models.manage_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
-    # Create a fake existing model file
-    model_file = tmp_path / "rebuild_model.pt"
+    model_file = tmp_path / "rebuild_model.joblib"
     model_file.write_bytes(b"old-weights")
 
     params = BuildOwnerModelParams(model_name="rebuild_model", overwrite=True)
     result = await build_owner_model(params)
 
     assert result["created"] is True
-    assert len(dummy_pytorch.build_calls) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -118,11 +102,11 @@ async def test_get_model_status_file_not_found(
     tmp_path,
 ) -> None:
     """get_model_status reports model does not exist when file is absent."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    dummy_ml = DummyMLModelManager()
 
     monkeypatch.setattr(
-        "activities.ml.models.manage_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
@@ -141,16 +125,15 @@ async def test_get_model_status_file_exists_on_disk(
     tmp_path,
 ) -> None:
     """get_model_status detects an on-disk model file and reports its size."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    dummy_ml = DummyMLModelManager()
 
     monkeypatch.setattr(
-        "activities.ml.models.manage_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
-    # Write a fake model file so Path.exists() returns True
-    model_file = tmp_path / "disk_model.pt"
+    model_file = tmp_path / "disk_model.joblib"
     model_file.write_bytes(b"x" * 512)
 
     params = GetModelStatusParams(model_name="disk_model")
@@ -167,24 +150,18 @@ async def test_get_model_status_cached_in_memory(
     tmp_path,
 ) -> None:
     """get_model_status reports cached_in_memory=True when the model is in the cache."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    dummy_ml = DummyMLModelManager()
 
-    # Pre-cache the model (simulates a previous build)
-    dummy_pytorch.build_team_owner_model(
-        player_feature_dim=9,
-        owner_profile_dim=26,
-        draft_context_dim=8,
-        model_name="cached_model",
-    )
+    from activities.ml.models.team_owner_model import TeamOwnerDraftModel
+    dummy_ml._models["cached_model"] = TeamOwnerDraftModel()
 
     monkeypatch.setattr(
-        "activities.ml.models.manage_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
-    # Also write a file so exists_on_disk is True
-    (tmp_path / "cached_model.pt").write_bytes(b"y" * 256)
+    (tmp_path / "cached_model.joblib").write_bytes(b"y" * 256)
 
     params = GetModelStatusParams(model_name="cached_model")
     result = await get_model_status(params)

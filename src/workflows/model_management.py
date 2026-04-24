@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict
 
 from temporalio import workflow
-from temporalio.common import RetryPolicy\
+from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
     from activities.ml.models.manage_model import (
@@ -38,8 +38,6 @@ class ModelManagementWorkflowParams:
         owner_profile_dim: Owner historical profile dimension (default 26).
         draft_context_dim: Draft-state context dimension (default 8).
         personality_dim: Personality trait vector dimension (default 8).
-        hidden_dim: Width of the shared fusion layers (default 256).
-        dropout_rate: Dropout probability used during training (default 0.3).
     """
 
     model_name: str
@@ -48,8 +46,6 @@ class ModelManagementWorkflowParams:
     owner_profile_dim: int = OWNER_PROFILE_DIM
     draft_context_dim: int = DRAFT_CONTEXT_DIM
     personality_dim: int = 8
-    hidden_dim: int = 256
-    dropout_rate: float = 0.3
 
 
 @workflow.defn(name="model-management")
@@ -123,8 +119,6 @@ class ModelManagementWorkflow:
                     owner_profile_dim=params.owner_profile_dim,
                     draft_context_dim=params.draft_context_dim,
                     personality_dim=params.personality_dim,
-                    hidden_dim=params.hidden_dim,
-                    dropout_rate=params.dropout_rate,
                     overwrite=overwrite,
                 ),
                 start_to_close_timeout=timedelta(seconds=120),
@@ -132,10 +126,10 @@ class ModelManagementWorkflow:
                 retry_policy=activity_retry_policy,
             )
             created = build_result.get("created", False)
-            total_params = build_result.get("total_params", "?")
+            model_type = build_result.get("model_type", "?")
             print(
                 f"Model '{params.model_name}': created={created}, "
-                f"total_params={total_params}, device={build_result.get('device')}"
+                f"model_type={model_type}"
             )
             workflow_activities.append({"activity": "build_owner_model", "result": build_result})
 

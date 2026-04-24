@@ -69,9 +69,10 @@ async def healthz():
         "fastapi_status": "running"
     }
 
-@app.get("/healthz/temporal-worker-service/status")
-async def healthz_temporal_worker_service_status():
-    """Report Temporal worker service connection details and status."""
+
+@app.get("/healthz/data-collection-worker-service/status")
+async def healthz_data_collection_worker_service_status():
+    """Report data collection worker service connection details and status."""
     connection_check()
     return {
         "temporal_host": temporal_host,
@@ -79,6 +80,7 @@ async def healthz_temporal_worker_service_status():
         "task_queue": temporal_task_queue,
         "client_connected": app.state.temporal_client is not None
     }
+
 
 
 # Workflow Invocations

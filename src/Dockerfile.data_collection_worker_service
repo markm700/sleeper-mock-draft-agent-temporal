@@ -1,0 +1,5 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r ./services/requirements.data_collection_worker_service.txt
+CMD ["python", "-m", "workers.workflow_worker"]

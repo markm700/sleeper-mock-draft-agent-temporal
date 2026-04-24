@@ -9,16 +9,12 @@ with workflow.unsafe.imports_passed_through():
     # Service/Client Managers
     from activities.clients.postgres_client import get_postgres_client_manager
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
-    from activities.clients.pytorch_client import get_pytorch_model_manager
     # Data Collection Workflows
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
     from workflows.league_data_collection import LeagueDataCollectionWorkflow
     from workflows.draft_data_collection import DraftDataCollectionWorkflow
     from workflows.player_data_collection import PlayerDataCollectionWorkflow
     from workflows.full_data_collection import FullDataCollectionWorkflow
-    # ML Workflows
-    from workflows.model_management import ModelManagementWorkflow
-    from workflows.model_training import ModelTrainingWorkflow
     # Data Collection Activities
     from activities.draft.get_drafts import get_league_drafts
     from activities.draft.get_draft_picks import get_specific_draft_picks
@@ -27,12 +23,6 @@ with workflow.unsafe.imports_passed_through():
     from activities.team_owner.get_data import get_team_owner_data
     from activities.league.get_data import get_league_data
     from activities.players.get_all_players import get_all_player_data
-    # ML Activities
-    from activities.ml.predictions.predict_player_pick import predict_owner_draft_pick, batch_predict_owner, get_player_features_from_db
-    from activities.ml.calculate_adp import calculate_adp_from_picks
-    from activities.ml.models.manage_model import build_owner_model, get_model_status
-    from activities.ml.training.prepare_training_data import prepare_owner_training_data
-    from activities.ml.training.train_model import train_team_owner_model
 
 
 async def main():
@@ -57,7 +47,6 @@ async def main():
         sleeper = get_sleeper_client_manager()
         postgres = get_postgres_client_manager()
         postgres.create_all_tables()  # Only for development/testing - use Alembic migrations in production!
-        pytorch_client = get_pytorch_model_manager()
 
         try:
             print(f"Starting Workflow Worker...")
@@ -70,25 +59,15 @@ async def main():
                     DraftDataCollectionWorkflow,
                     PlayerDataCollectionWorkflow,
                     FullDataCollectionWorkflow,
-                    ModelManagementWorkflow,
-                    ModelTrainingWorkflow,
                 ],
                 activities=[
                     get_league_data,
                     get_league_drafts,
                     get_specific_draft_picks,
                     get_traded_draft_picks,
-                    get_team_owner_rosters, 
+                    get_team_owner_rosters,
                     get_team_owner_data,
                     get_all_player_data,
-                    predict_owner_draft_pick,
-                    batch_predict_owner,
-                    get_player_features_from_db,
-                    calculate_adp_from_picks,
-                    build_owner_model,
-                    get_model_status,
-                    prepare_owner_training_data,
-                    train_team_owner_model,
                 ],
             )
             print("Workflow Worker started.")
@@ -98,7 +77,6 @@ async def main():
             print(f"Workflow Worker failed to start: {e}")
         finally:
             # Ensure clients used are closed
-            pytorch_client.close()
             await sleeper.close()
             postgres.drop_all_tables()  # Only for development/testing - remove in production!
             await postgres.close()

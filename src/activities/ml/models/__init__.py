@@ -1,1 +1,1 @@
-"""PyTorch model architectures for use in activities."""
+"""ML model architectures for use in activities."""

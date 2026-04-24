@@ -39,10 +39,8 @@ class ModelTrainingWorkflowParams:
         owner_profile_dim: Owner historical profile dimension (default 26).
         draft_context_dim: Draft-state context dimension (default 8).
         personality_dim: Personality trait vector dimension (default 8).
-        hidden_dim: Width of the shared fusion layers (default 256).
-        dropout_rate: Dropout probability (default 0.3).
-        epochs: Number of training epochs (default 50).
-        learning_rate: Adam optimiser learning rate (default 0.001).
+        num_boost_round: Number of LightGBM boosting rounds (default 100).
+        learning_rate: LightGBM learning rate (default 0.05).
         weighted_adp: Use recency-weighted ADP in feature construction (default True).
         min_picks_required: Minimum historical picks required to attempt training (default 10).
         rebuild_model: If True, force-rebuild the model from scratch (default False).
@@ -56,10 +54,8 @@ class ModelTrainingWorkflowParams:
     owner_profile_dim: int = OWNER_PROFILE_DIM
     draft_context_dim: int = DRAFT_CONTEXT_DIM
     personality_dim: int = 8
-    hidden_dim: int = 256
-    dropout_rate: float = 0.3
-    epochs: int = 50
-    learning_rate: float = 0.001
+    num_boost_round: int = 100
+    learning_rate: float = 0.05
     weighted_adp: bool = True
     min_picks_required: int = 10
     rebuild_model: bool = False
@@ -95,7 +91,7 @@ class ModelTrainingWorkflow:
        TeamOwner rows from PostgreSQL, reconstruct the draft context at each
        of the owner's historical picks, encode player features, and compute the
        26-dim owner profile vector. Returns a compact list of encoded training
-       samples ready for torch training.
+       samples ready for LightGBM ranking training.
 
     3. **build_owner_model** — build (or verify) the target TeamOwnerDraftModel
        on disk. Skips re-creation unless rebuild_model=True. This ensures the
@@ -228,8 +224,6 @@ class ModelTrainingWorkflow:
                 owner_profile_dim=params.owner_profile_dim,
                 draft_context_dim=params.draft_context_dim,
                 personality_dim=params.personality_dim,
-                hidden_dim=params.hidden_dim,
-                dropout_rate=params.dropout_rate,
                 overwrite=params.rebuild_model,
             ),
             start_to_close_timeout=timedelta(seconds=120),
@@ -240,12 +234,12 @@ class ModelTrainingWorkflow:
         )
         print(
             f"Model '{model_name}': created={build_result.get('created')}, "
-            f"total_params={build_result.get('total_params')}"
+            f"model_type={build_result.get('model_type')}"
         )
         workflow_activities.append({"activity": "build_owner_model", "result": {
             "model_name": model_name,
             "created": build_result.get("created"),
-            "total_params": build_result.get("total_params"),
+            "model_type": build_result.get("model_type"),
         }})
 
         # ------------------------------------------------------------------
@@ -261,9 +255,7 @@ class ModelTrainingWorkflow:
                 owner_profile_dim=params.owner_profile_dim,
                 draft_context_dim=params.draft_context_dim,
                 personality_dim=params.personality_dim,
-                hidden_dim=params.hidden_dim,
-                dropout_rate=params.dropout_rate,
-                epochs=params.epochs,
+                num_boost_round=params.num_boost_round,
                 learning_rate=params.learning_rate,
             ),
             start_to_close_timeout=timedelta(minutes=30),
@@ -273,9 +265,9 @@ class ModelTrainingWorkflow:
             retry_policy=activity_retry_policy,
         )
         print(
-            f"Training complete: {train_result['epochs_trained']} epochs, "
-            f"loss {train_result['initial_loss']:.4f} → {train_result['final_loss']:.4f}, "
-            f"samples={train_result['num_samples']}"
+            f"Training complete: {train_result['num_boost_round']} rounds, "
+            f"samples={train_result['num_samples']}, "
+            f"query_groups={train_result['num_query_groups']}"
         )
         workflow_activities.append({"activity": "train_team_owner_model", "result": train_result})
 
@@ -284,9 +276,8 @@ class ModelTrainingWorkflow:
             "model_name": model_name,
             "model_path": train_result["model_path"],
             "skipped": False,
-            "epochs_trained": train_result["epochs_trained"],
-            "initial_loss": train_result["initial_loss"],
-            "final_loss": train_result["final_loss"],
+            "num_boost_round": train_result["num_boost_round"],
             "num_samples": train_result["num_samples"],
+            "num_query_groups": train_result["num_query_groups"],
             "activity_data": workflow_activities,
         }

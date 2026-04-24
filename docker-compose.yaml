@@ -95,12 +95,12 @@ services:
       retries: 5
       start_period: 30s
 
-  # Temporal Worker
-  temporal_worker_service:
+  # Data Collection Worker
+  data_collection_worker_service:
     build:
       context: ./src
-      dockerfile: Dockerfile.temporal_worker_service
-    container_name: temporal_worker_service
+      dockerfile: Dockerfile.data_collection_worker_service
+    container_name: data_collection_worker_service
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,23 +115,30 @@ services:
       - TEMPORAL_HOST=${TEMPORAL_HOST}
       - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE}
       - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE}
-      # PyTorch / GPU
-      - PYTORCH_NUM_THREADS=${PYTORCH_NUM_CPU_THREADS:-4}
-      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
-      - DATALOADER_NUM_WORKERS=${DATALOADER_NUM_WORKERS:-4}
-      # Model paths (mounted as volumes below)
+
+  # ML Worker (scikit-learn / LightGBM training & inference)
+  ml_worker_service:
+    build:
+      context: ./src
+      dockerfile: Dockerfile.ml_worker_service
+    container_name: ml_worker_service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal_server:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_HOST=${TEMPORAL_HOST}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE}
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE}
       - MODEL_PATH=${MODEL_PATH:-/app/models}
-      - MODEL_CACHE_DIR=${MODEL_CACHE_DIR:-/app/models/cache}
     volumes:
       - ${MODEL_PATH:-./models}:/app/models
-      - ${MODEL_CACHE_DIR:-./models/cache}:/app/models/cache
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
 volumes:
   postgres_data:

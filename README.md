@@ -58,7 +58,8 @@ The docker-compose setup includes:
 | **postgres** | 5432 | PostgreSQL 16 database |
 | **temporal_server** | 7233 | Temporal server (workflow engine) |
 | **temporal_ui** | 8080 | Temporal Web UI (monitoring) |
-| **temporal_worker_service** | - | Temporal worker (executes workflows/activities) |
+| **data_collection_worker_service** | - | Data collection worker (executes data workflows/activities) |
+| **ml_worker_service** | - | ML worker (scikit-learn / LightGBM training & inference) |
 | **fastapi_worker** | 8002 | FastAPI service (API endpoints) |
 
 ## Getting Started
@@ -93,7 +94,8 @@ This will start:
 - **Temporal Server** on port 7233
 - **Temporal UI** on port 8080 (http://localhost:8080)
 - **FastAPI Worker** on port 8002
-- **Temporal Worker Service**
+- **Data Collection Worker Service**
+- **ML Worker Service**
 
 4. (Optional) Install dependencies for local development:
 ```bash
@@ -120,7 +122,7 @@ View logs:
 docker-compose logs -f
 
 # Specific service
-docker-compose logs -f temporal_worker_service
+docker-compose logs -f data_collection_worker_service
 docker-compose logs -f fastapi_worker
 ```
 
@@ -173,11 +175,13 @@ src/
 │   ├── data_collection/  # Workflow and activity tests
 │   └── mocks/        # Mock clients for testing
 ├── workers/           # Worker entry points
-│   └── workflow_worker.py
+│   ├── workflow_worker.py
+│   └── ml_worker.py
 ├── services/          # Service-specific requirements
 ├── ai-generated/      # AI-generated reference implementations
 ├── Dockerfile.fastapi_worker            # FastAPI worker container
-└── Dockerfile.temporal_worker_service   # Temporal worker container
+├── Dockerfile.data_collection_worker_service   # Data collection worker container
+└── Dockerfile.ml_worker_service                 # ML worker container (scikit-learn / LightGBM)
 
 docker/                # Docker configuration
 migrations/            # Database migrations

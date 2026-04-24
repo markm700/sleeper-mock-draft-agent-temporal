@@ -11,7 +11,7 @@ from activities.ml.training.train_model import (
     TrainTeamOwnerModelParams,
     train_team_owner_model,
 )
-from testing.mocks import DummyPyTorchModelManager
+from testing.mocks import DummyMLModelManager
 
 
 # ---------------------------------------------------------------------------
@@ -51,12 +51,12 @@ async def test_train_model_runs_and_returns_metrics(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """train_team_owner_model trains for requested epochs and returns a loss metric."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    """train_team_owner_model trains and returns result metrics."""
+    dummy_ml = DummyMLModelManager()
 
     monkeypatch.setattr(
-        "activities.ml.training.train_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.training.train_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
@@ -66,21 +66,20 @@ async def test_train_model_runs_and_returns_metrics(
         model_name="test_train_v1",
         training_samples=samples,
         owner_profile=_dummy_owner_profile(),
-        epochs=2,
-        learning_rate=0.01,
+        num_boost_round=10,
+        learning_rate=0.05,
     )
     result = await train_team_owner_model(params)
 
     assert result["model_name"] == "test_train_v1"
-    assert result["epochs_trained"] == 2
+    assert result["num_boost_round"] == 10
     assert result["num_samples"] == 5
-    assert isinstance(result["final_loss"], float)
-    assert isinstance(result["initial_loss"], float)
+    assert result["num_query_groups"] == 5
     assert "model_path" in result
 
-    # The model must have been saved (even if the path is stubbed)
-    assert len(dummy_pytorch.save_calls) == 1
-    assert dummy_pytorch.save_calls[0]["model_name"] == "test_train_v1"
+    # The model must have been saved
+    assert len(dummy_ml.save_calls) == 1
+    assert dummy_ml.save_calls[0]["model_name"] == "test_train_v1"
 
 
 @pytest.mark.asyncio
@@ -88,12 +87,12 @@ async def test_train_model_zero_samples_returns_early(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,
 ) -> None:
-    """When training_samples is empty, training is skipped and epochs_trained=0."""
-    dummy_pytorch = DummyPyTorchModelManager()
+    """When training_samples is empty, training is skipped."""
+    dummy_ml = DummyMLModelManager()
 
     monkeypatch.setattr(
-        "activities.ml.training.train_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
+        "activities.ml.training.train_model.get_ml_model_manager",
+        lambda: dummy_ml,
     )
     monkeypatch.setenv("MODEL_PATH", str(tmp_path))
 
@@ -101,82 +100,11 @@ async def test_train_model_zero_samples_returns_early(
         model_name="empty_model",
         training_samples=[],
         owner_profile=_dummy_owner_profile(),
-        epochs=10,
+        num_boost_round=10,
     )
     result = await train_team_owner_model(params)
 
-    assert result["epochs_trained"] == 0
+    assert result["num_boost_round"] == 0
     assert result["num_samples"] == 0
-    assert result["final_loss"] == 0.0
-    # No training → no save call should have been made
-    assert len(dummy_pytorch.save_calls) == 0
-
-
-@pytest.mark.asyncio
-async def test_train_model_uses_existing_model_file(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
-) -> None:
-    """When a model file already exists on disk, train_model loads rather than rebuilds."""
-    dummy_pytorch = DummyPyTorchModelManager()
-
-    # Pre-cache a model so load_model() succeeds
-    dummy_pytorch.build_team_owner_model(
-        player_feature_dim=PLAYER_FEATURE_DIM,
-        owner_profile_dim=OWNER_PROFILE_DIM,
-        draft_context_dim=DRAFT_CONTEXT_DIM,
-        model_name="pretrained_v1",
-    )
-
-    monkeypatch.setattr(
-        "activities.ml.training.train_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
-    )
-    monkeypatch.setenv("MODEL_PATH", str(tmp_path))
-
-    # Write a dummy file so Path(model_path).exists() returns True
-    (tmp_path / "pretrained_v1.pt").write_bytes(b"fake")
-
-    samples = [_make_sample()]
-    params = TrainTeamOwnerModelParams(
-        model_name="pretrained_v1",
-        training_samples=samples,
-        owner_profile=_dummy_owner_profile(),
-        epochs=1,
-    )
-    result = await train_team_owner_model(params)
-
-    # Should have used load_model, not build_team_owner_model again
-    assert len(dummy_pytorch.build_calls) == 1  # only the pre-setup call
-    assert len(dummy_pytorch.load_calls) >= 1
-    assert result["epochs_trained"] == 1
-
-
-@pytest.mark.asyncio
-async def test_train_model_loss_decreases_over_epochs(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
-) -> None:
-    """With multiple samples and epochs, final_loss should not exceed initial_loss."""
-    dummy_pytorch = DummyPyTorchModelManager()
-
-    monkeypatch.setattr(
-        "activities.ml.training.train_model.get_pytorch_model_manager",
-        lambda: dummy_pytorch,
-    )
-    monkeypatch.setenv("MODEL_PATH", str(tmp_path))
-
-    samples = [_make_sample(pick_no=i) for i in range(1, 11)]
-    params = TrainTeamOwnerModelParams(
-        model_name="converging_model",
-        training_samples=samples,
-        owner_profile=_dummy_owner_profile(),
-        epochs=5,
-        learning_rate=0.01,
-    )
-    result = await train_team_owner_model(params)
-
-    assert result["epochs_trained"] == 5
-    # After 5 epochs gradient descent should have made some progress
-    # (or at worst stayed the same — allow for equal values)
-    assert result["final_loss"] <= result["initial_loss"] + 1e-3
+    assert result["num_query_groups"] == 0
+    assert len(dummy_ml.save_calls) == 0
