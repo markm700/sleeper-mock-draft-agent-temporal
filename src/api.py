@@ -198,8 +198,8 @@ async def invoke_model_training_workflow(
     user_id: str,
     model_name: str = "",
     season: str | None = None,
-    epochs: int = 50,
-    learning_rate: float = 0.001,
+    num_boost_round: int = 100,
+    learning_rate: float = 0.07,
     rebuild_model: bool = False,
 ) -> Dict[str, Any]:
     """Invoke the model-training workflow to train a team owner draft prediction model."""
@@ -211,7 +211,7 @@ async def invoke_model_training_workflow(
             "user_id": user_id,
             "model_name": model_name,
             "season": season,
-            "epochs": epochs,
+            "num_boost_round": num_boost_round,
             "learning_rate": learning_rate,
             "rebuild_model": rebuild_model,
         }
@@ -219,6 +219,44 @@ async def invoke_model_training_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{user_id}-{league_id}-{os.urandom(4).hex()}",
+            task_queue=temporal_task_queue,
+        )
+        wf_result = await wf.result()
+
+        return {
+            "workflow_id": wf.id,
+            "run_id": wf.run_id,
+            "result": wf_result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {e}")
+
+
+@app.post("/league-model-training/run")
+async def invoke_league_model_training_workflow(
+    league_id: str,
+    season: str | None = None,
+    num_boost_round: int = 100,
+    learning_rate: float = 0.07,
+    rebuild_models: bool = False,
+    min_picks_required: int = 10,
+) -> Dict[str, Any]:
+    """Invoke the league-model-training workflow to train models for all team owners in a league."""
+    connection_check()
+    workflow_name = "league-model-training"
+    try:
+        params = {
+            "league_id": league_id,
+            "season": season,
+            "num_boost_round": num_boost_round,
+            "learning_rate": learning_rate,
+            "rebuild_models": rebuild_models,
+            "min_picks_required": min_picks_required,
+        }
+        wf: WorkflowHandle = await app.state.temporal_client.start_workflow(
+            workflow_name,
+            args=[params],
+            id=f"workflow-{_safe_slug(workflow_name)}-{league_id}-{os.urandom(4).hex()}",
             task_queue=temporal_task_queue,
         )
         wf_result = await wf.result()

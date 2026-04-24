@@ -199,6 +199,7 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
 
         return {
             "predictions": results,
+            "top_3_predictions": results["top_3_predictions"],
             "model_name": input.model_name,
             "personality_influence_used": influence,
             "num_candidates": n,
@@ -308,6 +309,7 @@ async def batch_predict_owner(input: BatchPredictOwnerParams) -> Dict[str, Any]:
 
         return {
             "predictions": results["all_predictions"],
+            "top_3_predictions": results["top_3_predictions"],
             "personality_influence_used": influence,
             "model_name": input.model_name,
             "num_candidates": n,
@@ -445,8 +447,11 @@ def _postprocess_owner_predictions(
         for rank, i in enumerate(ranked_indices)
     ]
 
+    top_3 = all_predictions[:3]
+
     return {
         "top_prediction": all_predictions[0],
+        "top_3_predictions": top_3,
         "all_predictions": all_predictions,
         "mean_confidence": float(np.mean(pick_probs)),
     }

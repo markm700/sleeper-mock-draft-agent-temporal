@@ -44,6 +44,9 @@ class ModelTrainingWorkflowParams:
         weighted_adp: Use recency-weighted ADP in feature construction (default True).
         min_picks_required: Minimum historical picks required to attempt training (default 10).
         rebuild_model: If True, force-rebuild the model from scratch (default False).
+        precomputed_adp_data: Pre-computed ADP dict from a parent workflow. When provided,
+            the ADP calculation step is skipped. This avoids redundant computation when
+            training multiple owners in the same league.
     """
 
     league_id: str
@@ -59,6 +62,7 @@ class ModelTrainingWorkflowParams:
     weighted_adp: bool = True
     min_picks_required: int = 10
     rebuild_model: bool = False
+    precomputed_adp_data: Optional[Dict[str, Any]] = None
 
 
 def _default_model_name(user_id: str, league_id: str) -> str:
@@ -146,31 +150,43 @@ class ModelTrainingWorkflow:
         workflow_activities = []
 
         # ------------------------------------------------------------------
-        # Step 1: Calculate ADP from stored draft picks
+        # Step 1: Calculate ADP from stored draft picks (or use precomputed)
         # ------------------------------------------------------------------
-        adp_result = await workflow.execute_activity(
-            calculate_adp_from_picks,
-            CalculateADPFromPicksParams(
-                league_id=params.league_id,
-                season=params.season,
-                weighted=params.weighted_adp,
-            ),
-            start_to_close_timeout=timedelta(seconds=60),
-            activity_id=(
-                f"activity-calculate_adp-{params.league_id}"
-                f"-{params.season or 'all'}-{wf_hex}"
-            ),
-            retry_policy=activity_retry_policy,
-        )
-        print(
-            f"ADP calculated: {adp_result['num_players']} players across "
-            f"{adp_result['num_drafts']} drafts ({adp_result['num_picks']} picks)"
-        )
-        workflow_activities.append({"activity": "calculate_adp_from_picks", "result": {
-            "num_players": adp_result["num_players"],
-            "num_picks": adp_result["num_picks"],
-            "num_drafts": adp_result["num_drafts"],
-        }})
+        if params.precomputed_adp_data is not None:
+            adp_result = params.precomputed_adp_data
+            print(
+                f"Using precomputed ADP data: {adp_result['num_players']} players"
+            )
+            workflow_activities.append({"activity": "calculate_adp_from_picks", "result": {
+                "num_players": adp_result["num_players"],
+                "num_picks": adp_result["num_picks"],
+                "num_drafts": adp_result["num_drafts"],
+                "precomputed": True,
+            }})
+        else:
+            adp_result = await workflow.execute_activity(
+                calculate_adp_from_picks,
+                CalculateADPFromPicksParams(
+                    league_id=params.league_id,
+                    season=params.season,
+                    weighted=params.weighted_adp,
+                ),
+                start_to_close_timeout=timedelta(seconds=60),
+                activity_id=(
+                    f"activity-calculate_adp-{params.league_id}"
+                    f"-{params.season or 'all'}-{wf_hex}"
+                ),
+                retry_policy=activity_retry_policy,
+            )
+            print(
+                f"ADP calculated: {adp_result['num_players']} players across "
+                f"{adp_result['num_drafts']} drafts ({adp_result['num_picks']} picks)"
+            )
+            workflow_activities.append({"activity": "calculate_adp_from_picks", "result": {
+                "num_players": adp_result["num_players"],
+                "num_picks": adp_result["num_picks"],
+                "num_drafts": adp_result["num_drafts"],
+            }})
 
         # ------------------------------------------------------------------
         # Step 2: Prepare encoded training samples for this owner

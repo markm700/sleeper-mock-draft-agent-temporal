@@ -12,12 +12,14 @@ with workflow.unsafe.imports_passed_through():
     # ML Workflows
     from workflows.model_management import ModelManagementWorkflow
     from workflows.model_training import ModelTrainingWorkflow
+    from workflows.league_model_training import LeagueModelTrainingWorkflow
     # ML Activities
     from activities.ml.predictions.predict_player_pick import predict_owner_draft_pick, batch_predict_owner, get_player_features_from_db
     from activities.ml.calculate_adp import calculate_adp_from_picks
     from activities.ml.models.manage_model import build_owner_model, get_model_status
     from activities.ml.training.prepare_training_data import prepare_owner_training_data
     from activities.ml.training.train_model import train_team_owner_model
+    from activities.ml.get_league_team_owners import get_league_team_owners
 
 
 async def main():
@@ -50,6 +52,7 @@ async def main():
                 workflows=[
                     ModelManagementWorkflow,
                     ModelTrainingWorkflow,
+                    LeagueModelTrainingWorkflow,
                 ],
                 activities=[
                     predict_owner_draft_pick,
@@ -60,6 +63,7 @@ async def main():
                     get_model_status,
                     prepare_owner_training_data,
                     train_team_owner_model,
+                    get_league_team_owners,
                 ],
             )
             print("ML Workflow Worker started.")
