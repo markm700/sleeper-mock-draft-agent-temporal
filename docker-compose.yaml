@@ -138,7 +138,7 @@ services:
       - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE}
       - MODEL_PATH=${MODEL_PATH:-/app/models}
     volumes:
-      - ${MODEL_PATH:-./models}:/app/models
+      - ${MODEL_HOST_PATH:-./models}:/app/models
 
 volumes:
   postgres_data:
