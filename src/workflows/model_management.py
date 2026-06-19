@@ -11,9 +11,12 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     from activities.ml.models.manage_model import (
         BuildOwnerModelParams,
+        DeleteModelParams,
         GetModelStatusParams,
         build_owner_model,
+        delete_model,
         get_model_status,
+        list_models,
     )
     from activities.ml.models.team_owner_model import (
         DRAFT_CONTEXT_DIM,
@@ -25,6 +28,8 @@ class ModelAction(str, Enum):
     BUILD = "build"
     REBUILD = "rebuild"
     STATUS = "status"
+    LIST = "list"
+    DELETE = "delete"
     
 @dataclass
 class ModelManagementWorkflowParams:
@@ -64,6 +69,10 @@ class ModelManagementWorkflow:
 
     * **status** — query on-disk file metadata and in-memory cache state
       without loading or modifying the model.
+
+    * **list** — list all models on disk with file size and cache state.
+
+    * **delete** — remove a model from disk and evict from in-memory cache.
     """
 
     @workflow.run
@@ -133,10 +142,37 @@ class ModelManagementWorkflow:
             )
             workflow_activities.append({"activity": "build_owner_model", "result": build_result})
 
+        elif action == ModelAction.LIST.value:
+            # List all models on disk
+            list_result = await workflow.execute_activity(
+                list_models,
+                start_to_close_timeout=timedelta(seconds=30),
+                activity_id=f"activity-list_models-{wf_hex}",
+                retry_policy=activity_retry_policy,
+            )
+            print(f"Listed {list_result['num_models']} models on disk")
+            workflow_activities.append({"activity": "list_models", "result": list_result})
+
+        elif action == ModelAction.DELETE.value:
+            # Delete model from disk and cache
+            delete_result = await workflow.execute_activity(
+                delete_model,
+                DeleteModelParams(model_name=params.model_name),
+                start_to_close_timeout=timedelta(seconds=30),
+                activity_id=f"activity-delete_model-{params.model_name}-{wf_hex}",
+                retry_policy=activity_retry_policy,
+            )
+            print(
+                f"Model '{params.model_name}': deleted_from_disk="
+                f"{delete_result['deleted_from_disk']}, "
+                f"evicted_from_cache={delete_result['evicted_from_cache']}"
+            )
+            workflow_activities.append({"activity": "delete_model", "result": delete_result})
+
         else:
             raise ValueError(
                 f"Unknown action '{params.action}'. "
-                "Valid actions: 'build', 'rebuild', 'status'."
+                "Valid actions: 'build', 'rebuild', 'status', 'list', 'delete'."
             )
 
         print(f"ModelManagementWorkflow complete — action={params.action}")

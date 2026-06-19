@@ -143,3 +143,92 @@ async def get_model_status(input: GetModelStatusParams) -> Dict[str, Any]:
     except Exception as e:
         print(f"Failed to query model status for '{input.model_name}': {str(e)}")
         raise
+
+
+@activity.defn(name="list_models")
+async def list_models() -> Dict[str, Any]:
+    """
+    List all models on disk and their cache status.
+
+    Scans MODEL_PATH for .joblib files and reports which are cached in memory.
+
+    Returns:
+        Dict[str, Any]: {"models": [{"model_name": str, "model_path": str, "size_bytes": int, "cached_in_memory": bool}, ...], "num_models": int}
+    """
+    ml_manager = get_ml_model_manager()
+    base_path = os.getenv("MODEL_PATH", "/app/models")
+
+    try:
+        models_dir = Path(base_path)
+        models_dir.mkdir(parents=True, exist_ok=True)
+        model_files = sorted(models_dir.glob("*.joblib"))
+
+        models = []
+        for model_file in model_files:
+            model_name = model_file.stem
+            models.append({
+                "model_name": model_name,
+                "model_path": str(model_file),
+                "size_bytes": model_file.stat().st_size,
+                "cached_in_memory": model_name in ml_manager._models,
+            })
+
+        print(f"Listed {len(models)} models from {base_path}")
+        return {"models": models, "num_models": len(models)}
+
+    except Exception as e:
+        print(f"Failed to list models: {str(e)}")
+        raise
+
+
+@dataclass
+class DeleteModelParams:
+    """
+    Parameters for deleting a model from disk and cache.
+
+    Args:
+        model_name: Unique model identifier to delete.
+    """
+
+    model_name: str
+
+
+@activity.defn(name="delete_model")
+async def delete_model(input: DeleteModelParams) -> Dict[str, Any]:
+    """
+    Delete a model from disk and evict it from the in-memory cache.
+
+    Args:
+        input: DeleteModelParams with model_name.
+
+    Returns:
+        Dict[str, Any]: {"model_name": str, "deleted_from_disk": bool, "evicted_from_cache": bool}
+    """
+    ml_manager = get_ml_model_manager()
+    base_path = os.getenv("MODEL_PATH", "/app/models")
+    model_path = Path(base_path) / f"{input.model_name}.joblib"
+
+    try:
+        deleted_from_disk = False
+        if model_path.exists():
+            model_path.unlink()
+            deleted_from_disk = True
+            print(f"Deleted model file: {model_path}")
+
+        evicted_from_cache = input.model_name in ml_manager._models
+        if evicted_from_cache:
+            ml_manager.unload_model(input.model_name)
+
+        print(
+            f"Model '{input.model_name}': deleted_from_disk={deleted_from_disk}, "
+            f"evicted_from_cache={evicted_from_cache}"
+        )
+        return {
+            "model_name": input.model_name,
+            "deleted_from_disk": deleted_from_disk,
+            "evicted_from_cache": evicted_from_cache,
+        }
+
+    except Exception as e:
+        print(f"Failed to delete model '{input.model_name}': {str(e)}")
+        raise
