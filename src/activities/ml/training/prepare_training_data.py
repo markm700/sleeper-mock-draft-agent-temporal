@@ -50,11 +50,12 @@ class PrepareOwnerTrainingDataParams:
     Parameters for preparing training data for a single team owner's model.
 
     Fields:
-        league_id: Sleeper league identifier.
+        league_id: Primary Sleeper league identifier.
         user_id: Sleeper user identifier of the team owner.
         season: Season year filter, e.g. "2025". None includes all seasons.
         adp_data: Pre-computed ADP dict from calculate_adp_from_picks. None triggers a default.
         min_picks_required: Minimum historical picks needed before training proceeds.
+        additional_league_ids: Extra league_ids (prior seasons) to include in training data.
     """
 
     league_id: str
@@ -62,6 +63,7 @@ class PrepareOwnerTrainingDataParams:
     season: Optional[str] = None  # e.g. "2025"; None = include all seasons
     adp_data: Optional[Dict[str, Any]] = None  # from calculate_adp_from_picks["adp_data"]
     min_picks_required: int = 10
+    additional_league_ids: Optional[List[str]] = None
 
 
 @activity.defn(name="prepare_owner_training_data")
@@ -93,23 +95,28 @@ async def prepare_owner_training_data(
 
     try:
         with postgres.session_scope() as session:
-            # Resolve team owner to confirm membership in this league
+            # Build the set of league_ids to query across (primary + additional)
+            all_league_ids = [input.league_id]
+            if input.additional_league_ids:
+                all_league_ids.extend(input.additional_league_ids)
+
+            # Resolve team owner to confirm membership in at least one of these leagues
             team_owner = (
                 session.query(TeamOwner)
                 .filter(
                     TeamOwner.user_id == input.user_id,
-                    TeamOwner.league_id == input.league_id,
+                    TeamOwner.league_id.in_(all_league_ids),
                 )
                 .first()
             )
             if team_owner is None:
                 raise ValueError(
                     f"TeamOwner not found: user_id={input.user_id} "
-                    f"league_id={input.league_id}"
+                    f"league_ids={all_league_ids}"
                 )
 
-            # Fetch drafts for this league, optionally filtered by season
-            draft_query = session.query(Draft).filter(Draft.league_id == input.league_id)
+            # Fetch drafts across all league_ids, optionally filtered by season
+            draft_query = session.query(Draft).filter(Draft.league_id.in_(all_league_ids))
             if input.season:
                 draft_query = draft_query.filter(Draft.season == input.season)
             drafts = draft_query.all()

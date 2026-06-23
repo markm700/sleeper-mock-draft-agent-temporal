@@ -21,15 +21,17 @@ class CalculateADPFromPicksParams:
     Parameters for calculating ADP from stored draft pick records.
 
     Args:
-        league_id: Sleeper league identifier to scope the calculation.
+        league_id: Primary Sleeper league identifier to scope the calculation.
         season: Season year filter, e.g. "2025". None includes all seasons.
         weighted: Apply recency decay across drafts (factor 0.7, default True).
         min_times_drafted: Exclude players drafted fewer than this many times.
+        additional_league_ids: Extra league_ids (prior seasons) to include in ADP.
     """
     league_id: str
     season: Optional[str] = None        # e.g. "2025" — if None, includes all seasons
     weighted: bool = True               # Apply recency decay across drafts (factor 0.7)
     min_times_drafted: int = 1          # Exclude players drafted fewer than this many times
+    additional_league_ids: Optional[List[str]] = None
 
 
 @activity.defn(name="calculate_adp_from_picks")
@@ -52,9 +54,14 @@ async def calculate_adp_from_picks(input: CalculateADPFromPicksParams) -> Dict[s
 
     try:
         with postgres.get_session() as session:
-            # Resolve draft_ids for this league (+ optional season filter)
+            # Build the set of league_ids to query across
+            all_league_ids = [input.league_id]
+            if input.additional_league_ids:
+                all_league_ids.extend(input.additional_league_ids)
+
+            # Resolve draft_ids for these leagues (+ optional season filter)
             draft_query = session.query(Draft.draft_id).filter(
-                Draft.league_id == input.league_id
+                Draft.league_id.in_(all_league_ids)
             )
             if input.season:
                 draft_query = draft_query.filter(Draft.season == input.season)

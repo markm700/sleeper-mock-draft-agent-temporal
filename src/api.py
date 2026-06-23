@@ -2,7 +2,7 @@ import os
 from contextlib import asynccontextmanager
 from enum import Enum
 from typing import Any, Dict, List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from temporalio.client import Client, WorkflowHandle
 
 temporal_client = None
@@ -243,6 +243,7 @@ async def invoke_league_model_training_workflow(
     learning_rate: float = 0.05,
     rebuild_models: bool = False,
     min_picks_required: int = 10,
+    additional_league_ids: List[str] | None = Query(None),
 ) -> Dict[str, Any]:
     """Invoke the league-model-training workflow to train models for all team owners in a league."""
     connection_check()
@@ -255,6 +256,7 @@ async def invoke_league_model_training_workflow(
             "learning_rate": learning_rate,
             "rebuild_models": rebuild_models,
             "min_picks_required": min_picks_required,
+            "additional_league_ids": additional_league_ids,
         }
         wf: WorkflowHandle = await app.state.temporal_client.start_workflow(
             workflow_name,

@@ -203,22 +203,31 @@ cmd_pipeline() {
     echo "$collect_result" | python3 -m json.tool 2>/dev/null || echo "$collect_result"
     echo ""
 
-    # Extract league_id from result
+    # Extract league_id and all_league_ids from result
     local league_id
+    local additional_league_ids
     league_id=$(echo "$collect_result" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-# Navigate to find league_id in the nested result
 result = data.get('result', {})
-activity_data = result.get('activity_data', [])
-for item in activity_data:
-    r = item.get('result', {})
-    if 'league_id' in r:
-        print(r['league_id'])
-        sys.exit(0)
-# Fallback: check top-level
+# Primary: use top-level league_id
 if 'league_id' in result:
     print(result['league_id'])
+else:
+    print('')
+" 2>/dev/null)
+
+    additional_league_ids=$(echo "$collect_result" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+result = data.get('result', {})
+all_ids = result.get('all_league_ids', [])
+primary = result.get('league_id', '')
+# Exclude the primary league_id — these are the historical ones
+others = [lid for lid in all_ids if lid != primary]
+if others:
+    # Format as query params: &additional_league_ids=X&additional_league_ids=Y
+    print('&'.join(f'additional_league_ids={lid}' for lid in others))
 else:
     print('')
 " 2>/dev/null)
@@ -235,11 +244,16 @@ else:
     fi
 
     log "Using league_id: ${league_id}"
+    if [[ -n "$additional_league_ids" ]]; then
+        log "Including historical leagues for training data"
+    fi
     echo ""
 
-    # Step 2: Train all owner models
-    info "Step 2: Training models for all owners in league..."
-    api_call POST "/league-model-training/run?league_id=${league_id}" || {
+    # Step 2: Train all owner models (with historical league data)
+    info "Step 2: Training models for all owners in league (including historical seasons)..."
+    local train_url="/league-model-training/run?league_id=${league_id}"
+    [[ -n "$additional_league_ids" ]] && train_url="${train_url}&${additional_league_ids}"
+    api_call POST "$train_url" || {
         err "Training failed"; exit 1
     }
 

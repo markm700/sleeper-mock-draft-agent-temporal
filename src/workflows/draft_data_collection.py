@@ -63,21 +63,28 @@ class DraftDataCollectionWorkflow:
             "draft_data": draft_data
         })
 
-        # Get Draft Picks Data Activity
-        draft_id = draft_data["league_drafts"][0]["draft_id"]
-        draft_picks = await workflow.execute_activity(
-            get_specific_draft_picks,
-            GetSpecificDraftPicksParams(draft_id=draft_id),
-            start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}-{wf_hex}",
-            retry_policy=activity_retry_policy,
-        )
-        print(f"Specific Draft Picks Activity result: {len(draft_picks.get('draft_picks', []))} picks for draft {draft_id}")
-        workflow_activities.append({
-            "activity": "get_specific_draft_picks",
-            "total_draft_picks": len(draft_picks.get("draft_picks", [])),
-            "draft_picks": draft_picks
-        })
+        # Get Draft Picks Data Activity — iterate ALL drafts
+        total_picks_collected = 0
+        for draft in draft_data["league_drafts"]:
+            draft_id = draft["draft_id"]
+            draft_picks = await workflow.execute_activity(
+                get_specific_draft_picks,
+                GetSpecificDraftPicksParams(draft_id=draft_id),
+                start_to_close_timeout=timedelta(seconds=30),
+                activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}-{wf_hex}",
+                retry_policy=activity_retry_policy,
+            )
+            num_picks = len(draft_picks.get("draft_picks", []))
+            total_picks_collected += num_picks
+            print(f"Specific Draft Picks Activity result: {num_picks} picks for draft {draft_id}")
+            workflow_activities.append({
+                "activity": "get_specific_draft_picks",
+                "draft_id": draft_id,
+                "total_draft_picks": num_picks,
+                "draft_picks": draft_picks
+            })
+
+        print(f"Total draft picks collected: {total_picks_collected} across {len(draft_data['league_drafts'])} drafts")
 
         # Get Draft Pick Trade Data Activity
         draft_pick_trades = await workflow.execute_activity(

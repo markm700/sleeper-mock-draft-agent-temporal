@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -63,6 +63,7 @@ class ModelTrainingWorkflowParams:
     min_picks_required: int = 10
     rebuild_model: bool = False
     precomputed_adp_data: Optional[Dict[str, Any]] = None
+    additional_league_ids: Optional[List[str]] = None
 
 
 def _default_model_name(user_id: str, league_id: str) -> str:
@@ -170,6 +171,7 @@ class ModelTrainingWorkflow:
                     league_id=params.league_id,
                     season=params.season,
                     weighted=params.weighted_adp,
+                    additional_league_ids=params.additional_league_ids,
                 ),
                 start_to_close_timeout=timedelta(seconds=60),
                 activity_id=(
@@ -199,6 +201,7 @@ class ModelTrainingWorkflow:
                 season=params.season,
                 adp_data=adp_result["adp_data"],
                 min_picks_required=params.min_picks_required,
+                additional_league_ids=params.additional_league_ids,
             ),
             start_to_close_timeout=timedelta(minutes=5),
             activity_id=(

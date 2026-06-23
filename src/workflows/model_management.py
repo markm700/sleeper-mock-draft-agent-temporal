@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from datetime import timedelta
-from enum import Enum
 from typing import Any, Dict
 
 from temporalio import workflow
@@ -24,12 +23,9 @@ with workflow.unsafe.imports_passed_through():
         PLAYER_FEATURE_DIM,
     )
 
-class ModelAction(str, Enum):
-    BUILD = "build"
-    REBUILD = "rebuild"
-    STATUS = "status"
-    LIST = "list"
-    DELETE = "delete"
+
+VALID_ACTIONS = ("build", "rebuild", "status", "list", "delete")
+
     
 @dataclass
 class ModelManagementWorkflowParams:
@@ -38,7 +34,7 @@ class ModelManagementWorkflowParams:
 
     Fields:
         model_name: Unique model identifier, e.g. "owner_{user_id}_{league_id}_v1".
-        action: Lifecycle action — "build", "rebuild", or "status".
+        action: Lifecycle action — "build", "rebuild", "status", "list", or "delete".
         player_feature_dim: Per-player feature dimension (default 9).
         owner_profile_dim: Owner historical profile dimension (default 26).
         draft_context_dim: Draft-state context dimension (default 8).
@@ -46,7 +42,7 @@ class ModelManagementWorkflowParams:
     """
 
     model_name: str
-    action: ModelAction = ModelAction.STATUS
+    action: str = "status"
     player_feature_dim: int = PLAYER_FEATURE_DIM
     owner_profile_dim: int = OWNER_PROFILE_DIM
     draft_context_dim: int = DRAFT_CONTEXT_DIM
@@ -99,10 +95,10 @@ class ModelManagementWorkflow:
             backoff_coefficient=2.0,
         )
 
-        action = params.action.lower()
+        action = str(params.action).lower()
         workflow_activities = []
 
-        if action == ModelAction.STATUS.value:
+        if action == "status":
             # Query model disk/cache state only
             status_result = await workflow.execute_activity(
                 get_model_status,
@@ -117,8 +113,8 @@ class ModelManagementWorkflow:
             )
             workflow_activities.append({"activity": "get_model_status", "result": status_result})
 
-        elif action in (ModelAction.BUILD.value, ModelAction.REBUILD.value):
-            overwrite = action == ModelAction.REBUILD.value
+        elif action in ("build", "rebuild"):
+            overwrite = action == "rebuild"
 
             build_result = await workflow.execute_activity(
                 build_owner_model,
@@ -142,7 +138,7 @@ class ModelManagementWorkflow:
             )
             workflow_activities.append({"activity": "build_owner_model", "result": build_result})
 
-        elif action == ModelAction.LIST.value:
+        elif action == "list":
             # List all models on disk
             list_result = await workflow.execute_activity(
                 list_models,
@@ -153,7 +149,7 @@ class ModelManagementWorkflow:
             print(f"Listed {list_result['num_models']} models on disk")
             workflow_activities.append({"activity": "list_models", "result": list_result})
 
-        elif action == ModelAction.DELETE.value:
+        elif action == "delete":
             # Delete model from disk and cache
             delete_result = await workflow.execute_activity(
                 delete_model,

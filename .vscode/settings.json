@@ -4,5 +4,8 @@
         "plaintext": true
     },
     "github.copilot.chat.codeGeneration.useInstructionFiles": true,
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+    "chat.tools.terminal.autoApprove": {
+        "docker exec": true
+    }
 }

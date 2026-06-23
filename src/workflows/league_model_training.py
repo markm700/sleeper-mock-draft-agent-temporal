@@ -46,6 +46,7 @@ class LeagueModelTrainingWorkflowParams:
     min_picks_required: int = 10
     rebuild_models: bool = False
     exclude_bots: bool = True
+    additional_league_ids: Optional[List[str]] = None
 
 
 @workflow.defn(name="league-model-training")
@@ -140,6 +141,7 @@ class LeagueModelTrainingWorkflow:
                 league_id=params.league_id,
                 season=params.season,
                 weighted=params.weighted_adp,
+                additional_league_ids=params.additional_league_ids,
             ),
             start_to_close_timeout=timedelta(seconds=60),
             activity_id=(
@@ -188,6 +190,7 @@ class LeagueModelTrainingWorkflow:
                     min_picks_required=params.min_picks_required,
                     rebuild_model=params.rebuild_models,
                     precomputed_adp_data=adp_result,
+                    additional_league_ids=params.additional_league_ids,
                 ),
                 id=(
                     f"child-model-training-{user_id}"
