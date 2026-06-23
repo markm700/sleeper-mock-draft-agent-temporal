@@ -11,6 +11,7 @@ CONNECTION_DETAIL = "Temporal server not connected"
 temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
 temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
 temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "task-queue")
+temporal_ml_task_queue: str = os.getenv("TEMPORAL_ML_TASK_QUEUE", "task-queue-ml")
 
 
 def _safe_slug(text: str | None) -> str:
@@ -182,7 +183,7 @@ async def invoke_model_management_workflow(model_name: str, action: ModelManagem
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{_safe_slug(model_name)}-{_safe_slug(action)}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -221,7 +222,7 @@ async def invoke_model_training_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{user_id}-{league_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -259,7 +260,7 @@ async def invoke_league_model_training_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{league_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -288,7 +289,7 @@ async def list_models() -> Dict[str, Any]:
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-list-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -315,7 +316,7 @@ async def get_model_status(model_name: str) -> Dict[str, Any]:
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-status-{_safe_slug(model_name)}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -342,7 +343,7 @@ async def delete_model(model_name: str) -> Dict[str, Any]:
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-delete-{_safe_slug(model_name)}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -369,7 +370,7 @@ async def build_model(model_name: str) -> Dict[str, Any]:
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-build-{_safe_slug(model_name)}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -396,7 +397,7 @@ async def rebuild_model(model_name: str) -> Dict[str, Any]:
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-rebuild-{_safe_slug(model_name)}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -438,7 +439,7 @@ async def invoke_model_prediction_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{_safe_slug(model_name)}-{user_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 

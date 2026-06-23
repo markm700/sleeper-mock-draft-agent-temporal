@@ -1,0 +1,295 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Sleeper Mock Draft Agent — API Script
+# Executes the full workflow pipeline via FastAPI (localhost:8002)
+# ==============================================================================
+set -euo pipefail
+
+BASE_URL="${API_BASE_URL:-http://localhost:8002}"
+USERNAME="${SLEEPER_USERNAME:-markm700}"
+LEAGUE_NAME="${SLEEPER_LEAGUE_NAME:-DTA Jehovahs}"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+log()   { echo -e "${GREEN}[✓]${NC} $1"; }
+warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
+err()   { echo -e "${RED}[✗]${NC} $1"; }
+info()  { echo -e "${CYAN}[→]${NC} $1"; }
+
+api_call() {
+    local method="$1"
+    local endpoint="$2"
+    shift 2
+    local url="${BASE_URL}${endpoint}"
+
+    info "${method} ${url}"
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X "${method}" "${url}" \
+        -H "Content-Type: application/json" "$@")
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | sed '$d')
+
+    if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
+        log "HTTP ${http_code}"
+        echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body"
+    else
+        err "HTTP ${http_code}"
+        echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body"
+        return 1
+    fi
+    echo ""
+}
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") <command> [options]
+
+Commands:
+  health              Health check
+  status              Worker service status
+
+  --- Data Collection ---
+  collect-all         Run full data collection (team owners + league + drafts + players)
+  collect-players     Run player data collection only
+  collect-team-owner  Run team owner data collection
+
+  --- Model Training ---
+  train-league        Train models for all owners in a league
+  train-owner         Train model for a single owner
+
+  --- Model Management ---
+  models              List all models
+  model-status        Get model status
+  model-build         Build a model scaffold
+  model-rebuild       Force rebuild a model
+  model-delete        Delete a model
+  model-manage        Generic model management action
+
+  --- Prediction ---
+  predict             Run a draft pick prediction
+
+  --- Full Pipeline ---
+  pipeline            Run the full pipeline: collect → train → verify
+
+Environment:
+  API_BASE_URL         Base URL (default: http://localhost:8002)
+  SLEEPER_USERNAME     Sleeper username (default: markm700)
+  SLEEPER_LEAGUE_NAME  Sleeper league name (default: DTA Jehovahs)
+
+EOF
+}
+
+# ─── Commands ─────────────────────────────────────────────────────────────────
+
+cmd_health() {
+    api_call GET "/healthz"
+}
+
+cmd_status() {
+    api_call GET "/healthz/data-collection-worker-service/status"
+}
+
+cmd_collect_all() {
+    local user="${1:-$USERNAME}"
+    local league="${2:-$LEAGUE_NAME}"
+    warn "Running full data collection (this may take a few minutes)..."
+    api_call POST "/full-data-collection/run?username=$(urlencode "$user")&league_name=$(urlencode "$league")"
+}
+
+cmd_collect_players() {
+    api_call POST "/player-data-collection/run"
+}
+
+cmd_collect_team_owner() {
+    local user="${1:-$USERNAME}"
+    local league="${2:-$LEAGUE_NAME}"
+    api_call POST "/team-owner-data-collection/run?username=$(urlencode "$user")&league_name=$(urlencode "$league")"
+}
+
+cmd_train_league() {
+    local league_id="${1:?Error: league_id required. Usage: $0 train-league <league_id> [season]}"
+    local season="${2:-}"
+    local url="/league-model-training/run?league_id=${league_id}"
+    [[ -n "$season" ]] && url="${url}&season=${season}"
+    warn "Training models for all owners in league ${league_id}..."
+    api_call POST "$url"
+}
+
+cmd_train_owner() {
+    local league_id="${1:?Error: league_id required. Usage: $0 train-owner <league_id> <user_id> [model_name]}"
+    local user_id="${2:?Error: user_id required. Usage: $0 train-owner <league_id> <user_id> [model_name]}"
+    local model_name="${3:-}"
+    local url="/model-training/run?league_id=${league_id}&user_id=${user_id}"
+    [[ -n "$model_name" ]] && url="${url}&model_name=${model_name}"
+    api_call POST "$url"
+}
+
+cmd_models() {
+    api_call GET "/models"
+}
+
+cmd_model_status() {
+    local model_name="${1:?Error: model_name required. Usage: $0 model-status <model_name>}"
+    api_call GET "/models/${model_name}/status"
+}
+
+cmd_model_build() {
+    local model_name="${1:?Error: model_name required. Usage: $0 model-build <model_name>}"
+    api_call POST "/models/${model_name}/build"
+}
+
+cmd_model_rebuild() {
+    local model_name="${1:?Error: model_name required. Usage: $0 model-rebuild <model_name>}"
+    api_call POST "/models/${model_name}/rebuild"
+}
+
+cmd_model_delete() {
+    local model_name="${1:?Error: model_name required. Usage: $0 model-delete <model_name>}"
+    api_call DELETE "/models/${model_name}"
+}
+
+cmd_model_manage() {
+    local model_name="${1:?Error: model_name required. Usage: $0 model-manage <model_name> <action>}"
+    local action="${2:?Error: action required (build|rebuild|status|list|delete)}"
+    api_call POST "/model-management/run?model_name=${model_name}&action=${action}"
+}
+
+cmd_predict() {
+    local model_name="${1:?Error: model_name required. Usage: $0 predict <model_name> <user_id> <json_body_file>}"
+    local user_id="${2:?Error: user_id required}"
+    local body_file="${3:?Error: JSON body file required (with player_ids, draft_context, owner_profile)}"
+
+    if [[ ! -f "$body_file" ]]; then
+        err "File not found: $body_file"
+        return 1
+    fi
+
+    api_call POST "/model-prediction/run?model_name=${model_name}&user_id=${user_id}" \
+        -d @"$body_file"
+}
+
+cmd_pipeline() {
+    local user="${1:-$USERNAME}"
+    local league="${2:-$LEAGUE_NAME}"
+
+    echo ""
+    echo "════════════════════════════════════════════════════════"
+    echo "  FULL PIPELINE: collect → train → verify"
+    echo "  User: ${user} | League: ${league}"
+    echo "════════════════════════════════════════════════════════"
+    echo ""
+
+    # Step 0: Health check
+    info "Step 0: Health check"
+    api_call GET "/healthz" || { err "API not reachable at ${BASE_URL}"; exit 1; }
+
+    # Step 1: Full data collection
+    info "Step 1: Full data collection"
+    warn "This collects team owners, leagues, drafts, and players..."
+    local collect_result
+    collect_result=$(curl -s -X POST "${BASE_URL}/full-data-collection/run?username=$(urlencode "$user")&league_name=$(urlencode "$league")" \
+        -H "Content-Type: application/json")
+    log "Data collection complete"
+    echo "$collect_result" | python3 -m json.tool 2>/dev/null || echo "$collect_result"
+    echo ""
+
+    # Extract league_id from result
+    local league_id
+    league_id=$(echo "$collect_result" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+# Navigate to find league_id in the nested result
+result = data.get('result', {})
+activity_data = result.get('activity_data', [])
+for item in activity_data:
+    r = item.get('result', {})
+    if 'league_id' in r:
+        print(r['league_id'])
+        sys.exit(0)
+# Fallback: check top-level
+if 'league_id' in result:
+    print(result['league_id'])
+else:
+    print('')
+" 2>/dev/null)
+
+    if [[ -z "$league_id" ]]; then
+        warn "Could not auto-extract league_id from response."
+        echo "Please provide league_id manually:"
+        read -r league_id
+    fi
+
+    if [[ -z "$league_id" ]]; then
+        err "No league_id — cannot continue to training."
+        exit 1
+    fi
+
+    log "Using league_id: ${league_id}"
+    echo ""
+
+    # Step 2: Train all owner models
+    info "Step 2: Training models for all owners in league..."
+    api_call POST "/league-model-training/run?league_id=${league_id}" || {
+        err "Training failed"; exit 1
+    }
+
+    # Step 3: Verify models
+    info "Step 3: Listing trained models"
+    api_call GET "/models"
+
+    echo ""
+    log "Pipeline complete! Models are ready for predictions."
+    echo ""
+    echo "  Next: $0 predict <model_name> <user_id> <body.json>"
+    echo ""
+}
+
+# ─── URL Encoding Helper ─────────────────────────────────────────────────────
+
+urlencode() {
+    python3 -c "import urllib.parse; print(urllib.parse.quote('$1', safe=''))"
+}
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
+if [[ $# -lt 1 ]]; then
+    usage
+    exit 1
+fi
+
+command="$1"
+shift
+
+case "$command" in
+    health)             cmd_health "$@" ;;
+    status)             cmd_status "$@" ;;
+    collect-all)        cmd_collect_all "$@" ;;
+    collect-players)    cmd_collect_players "$@" ;;
+    collect-team-owner) cmd_collect_team_owner "$@" ;;
+    train-league)       cmd_train_league "$@" ;;
+    train-owner)        cmd_train_owner "$@" ;;
+    models)             cmd_models "$@" ;;
+    model-status)       cmd_model_status "$@" ;;
+    model-build)        cmd_model_build "$@" ;;
+    model-rebuild)      cmd_model_rebuild "$@" ;;
+    model-delete)       cmd_model_delete "$@" ;;
+    model-manage)       cmd_model_manage "$@" ;;
+    predict)            cmd_predict "$@" ;;
+    pipeline)           cmd_pipeline "$@" ;;
+    help|--help|-h)     usage ;;
+    *)
+        err "Unknown command: ${command}"
+        usage
+        exit 1
+        ;;
+esac
