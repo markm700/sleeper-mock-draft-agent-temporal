@@ -289,14 +289,15 @@ def _empty_result(input: PrepareOwnerTrainingDataParams) -> Dict[str, Any]:
 
 def _encode_player(player: Optional[Any], adp_info: Dict[str, Any]) -> List[float]:
     """
-    Encode a Player ORM object and ADP info into the 9-dim feature vector.
+    Encode a Player ORM object and ADP info into the 11-dim feature vector.
 
     Args:
         player: Player ORM row. None returns a zero-filled default vector.
         adp_info: ADP metrics dict for this player from calculate_adp_from_picks.
 
     Returns:
-        List[float]: 9-dim vector [position, status, age, exp, adp_inv, pts, rank_inv, has_team, is_injured].
+        List[float]: 11-dim vector [position, status, age, exp, adp_inv, adp_consensus,
+            adp_popularity, pts, rank_inv, has_team, is_injured].
     """
     if player is None:
         return _default_player_features()
@@ -304,13 +305,17 @@ def _encode_player(player: Optional[Any], adp_info: Dict[str, Any]) -> List[floa
     pos_idx = float(_POSITION_MAP.get(player.position or "", -1))
     status_enc = _STATUS_MAP.get(player.status or "Active", 0.5)
     adp = adp_info.get("adp", 999.0)
+    adp_std = adp_info.get("std_dev", 0.0)
+    times_drafted = adp_info.get("times_drafted", 0)
 
     return [
         pos_idx,
         status_enc,
         (player.age or 0) / 100.0,
         (player.years_exp or 0) / 20.0,
-        1.0 / (adp + 1.0),
+        1.0 / (adp + 1.0),                        # lower ADP = higher value
+        1.0 / (adp_std + 1.0),                    # tight consensus = higher value
+        min(times_drafted / 100.0, 1.0),           # draft popularity, capped at 100
         0.0,          # projected_points: not yet integrated
         1.0 / 1000.0, # position_rank: not yet integrated
         1.0 if player.team else 0.0,
@@ -320,12 +325,12 @@ def _encode_player(player: Optional[Any], adp_info: Dict[str, Any]) -> List[floa
 
 def _default_player_features() -> List[float]:
     """
-    Return a zero-filled 9-dim player feature vector used for padding.
+    Return a zero-filled 11-dim player feature vector used for padding.
 
     Returns:
-        List[float]: Nine zeros, one per player feature dimension.
+        List[float]: Eleven zeros, one per player feature dimension.
     """
-    return [0.0] * 9
+    return [0.0] * 11
 
 
 def _build_context(

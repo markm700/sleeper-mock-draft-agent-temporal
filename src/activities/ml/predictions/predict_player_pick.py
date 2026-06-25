@@ -327,13 +327,13 @@ async def batch_predict_owner(input: BatchPredictOwnerParams) -> Dict[str, Any]:
 
 def _prepare_player_features_only(player_features: List[Dict[str, Any]]) -> np.ndarray:
     """
-    Build the 9-dimensional per-player feature vector.
+    Build the 11-dimensional per-player feature vector.
 
     Args:
         player_features: Player feature dicts from get_player_features_from_db.
 
     Returns:
-        np.ndarray: Shape (n_players, 9).
+        np.ndarray: Shape (n_players, 11).
     """
     position_map = {"QB": 0, "RB": 1, "WR": 2, "TE": 3, "K": 4, "DEF": 5}
     status_map = {
@@ -347,7 +347,9 @@ def _prepare_player_features_only(player_features: List[Dict[str, Any]]) -> np.n
             status_map.get(p.get("status") or "Active", 0.5),
             (p.get("age") or 25) / 100.0,
             (p.get("years_exp") or 0) / 20.0,
-            1.0 / ((p.get("adp") or 999) + 1),
+            1.0 / ((p.get("adp") or 999) + 1),                     # lower ADP = higher value
+            1.0 / ((p.get("adp_std") or 999) + 1),                 # tight consensus = higher value
+            min((p.get("times_drafted") or 0) / 100.0, 1.0),       # draft popularity, capped at 100
             (p.get("projected_points") or 0.0) / 400.0,
             1.0 / ((p.get("position_rank") or 999) + 1),
             1.0 if p.get("team") else 0.0,
