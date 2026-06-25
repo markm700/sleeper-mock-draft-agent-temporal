@@ -24,6 +24,12 @@ with workflow.unsafe.imports_passed_through():
     )
 
 
+# Columns 4-6 within the player feature block are the three ADP features:
+# adp_inv, adp_std_inv, adp_popularity (see _prepare_player_features_only).
+# Since player features are first in X, these map directly to X[:, 4:7].
+_ADP_FEATURE_COLS = slice(4, 7)
+
+
 @dataclass
 class GetPlayerFeaturesParams:
     """
@@ -116,6 +122,7 @@ class PredictOwnerDraftPickParams:
     user_id: Optional[str] = None
     model_name: str = "team_owner_draft_v1"
     personality_influence_scale: Optional[float] = None
+    adp_influence_scale: float = 2.0
 
 
 @activity.defn(name="predict_owner_draft_pick")
@@ -171,14 +178,15 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
         personality_col_start = (
             model.player_feature_dim + model.owner_profile_dim + model.draft_context_dim
         )
+        X_scored = X.copy()
+        X_scored[:, _ADP_FEATURE_COLS] *= input.adp_influence_scale
         if input.personality_influence_scale is not None:
             influence = float(input.personality_influence_scale)
-            X_scored = X.copy()
             X_scored[:, personality_col_start:] *= influence
             pick_scores_np = model.predict(X_scored)
         else:
             pick_scores_np, influence = model.predict_with_random_personality(
-                X, personality_col_start
+                X_scored, personality_col_start
             )
 
         print(f"Scoring {n} candidate players for owner model '{input.model_name}'")
@@ -235,6 +243,7 @@ class BatchPredictOwnerParams:
     user_id: Optional[str] = None
     model_name: str = "team_owner_draft_v1"
     personality_influence_scale: Optional[float] = None
+    adp_influence_scale: float = 2.0
 
 
 @activity.defn(name="batch_predict_owner")
@@ -284,16 +293,14 @@ async def batch_predict_owner(input: BatchPredictOwnerParams) -> Dict[str, Any]:
         personality_col_start = (
             model.player_feature_dim + model.owner_profile_dim + model.draft_context_dim
         )
+        X_scored = X.copy()
+        X_scored[:, _ADP_FEATURE_COLS] *= input.adp_influence_scale
         if input.personality_influence_scale is not None:
             influence = float(input.personality_influence_scale)
-            X_scored = X.copy()
-            X_scored[:, personality_col_start:] *= influence
-            affinities = model.predict(X_scored)
         else:
             influence = float(np.random.uniform(0.0, 1.0))
-            X_scored = X.copy()
-            X_scored[:, personality_col_start:] *= influence
-            affinities = model.predict(X_scored)
+        X_scored[:, personality_col_start:] *= influence
+        affinities = model.predict(X_scored)
 
         exp_scores = np.exp(affinities - np.max(affinities))
         confidences = exp_scores / exp_scores.sum()

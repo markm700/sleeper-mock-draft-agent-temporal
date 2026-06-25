@@ -44,6 +44,7 @@ class MockDraftSimulationWorkflowParams:
     num_rounds: int = 15
     draft_type: str = "snake"
     personality_influence_scale: Optional[float] = None
+    adp_influence_scale: float = 2.0
 
 
 @workflow.defn(name="mock-draft-simulation")
@@ -235,6 +236,7 @@ class MockDraftSimulationWorkflow:
                             user_id=user_id,
                             model_name=model_name,
                             personality_influence_scale=params.personality_influence_scale,
+                            adp_influence_scale=params.adp_influence_scale,
                         ),
                         start_to_close_timeout=timedelta(seconds=30),
                         activity_id=f"activity-predict-r{round_num}-p{pick_no}-{wf_hex}",
