@@ -270,6 +270,7 @@ class ModelTrainingWorkflow:
                 model_name=model_name,
                 training_samples=training_data["training_samples"],
                 owner_profile=training_data["owner_profile"],
+                personality_trait=training_data.get("personality_trait", ""),
                 player_feature_dim=params.player_feature_dim,
                 owner_profile_dim=params.owner_profile_dim,
                 draft_context_dim=params.draft_context_dim,

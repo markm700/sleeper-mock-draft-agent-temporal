@@ -60,6 +60,13 @@ class User(Base):
         comment="Fun personality fact for model flair (e.g., 'Listens to Gangnam Style', 'Always wears lucky socks', 'Has a cat named Brady')"
     )
 
+    # ML personality trait (one of the keys in RANDOM_PERSONALITY_TRAITS)
+    personality_trait = Column(
+        String(50),
+        nullable=True,
+        comment="ML draft personality trait key, e.g. 'contrarian' or 'upside_seeking'"
+    )
+
     # Semi-structured data
     api_metadata = Column(JSONB, nullable=True, comment="User metadata from API")
 
@@ -227,6 +234,13 @@ class TeamOwner(Base):
         Text,
         nullable=True,
         comment="League-specific personality fun fact (overrides User.personality_fun_fact if set)"
+    )
+
+    # ML personality trait (league-specific override)
+    personality_trait = Column(
+        String(50),
+        nullable=True,
+        comment="League-specific ML draft personality trait key (overrides User.personality_trait if set)"
     )
 
     # League-specific metadata

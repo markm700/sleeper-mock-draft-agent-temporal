@@ -413,7 +413,7 @@ def _prepare_personality_features(personality_trait: str) -> np.ndarray:
         np.ndarray: Shape (1, personality_dim).
     """
     vec = get_personality_trait_vector(personality_trait)
-    return np.array([vec], dtype=np.float32)
+    return np.array([list(vec.values())], dtype=np.float32)
 
 
 def _postprocess_owner_predictions(

@@ -34,7 +34,7 @@ class PlayerDataCollectionWorkflow:
         # Get Players Data Activity
         player_upsert_data = await workflow.execute_activity(
             get_all_player_data,
-            start_to_close_timeout=timedelta(seconds=30),
+            start_to_close_timeout=timedelta(minutes=5),
             activity_id=f"activity-get_all_player_data-{wf_hex}",
             retry_policy=activity_retry_policy,
         )

@@ -23,6 +23,7 @@ with workflow.unsafe.imports_passed_through():
         PLAYER_FEATURE_DIM,
         TeamOwnerDraftModel,
     )
+    from schema.constants import get_personality_trait_vector, get_random_personality_trait
 
 
 @dataclass
@@ -46,6 +47,7 @@ class TrainTeamOwnerModelParams:
     model_name: str
     training_samples: List[Dict[str, Any]]
     owner_profile: List[float]
+    personality_trait: str = ""
     player_feature_dim: int = PLAYER_FEATURE_DIM
     owner_profile_dim: int = OWNER_PROFILE_DIM
     draft_context_dim: int = DRAFT_CONTEXT_DIM
@@ -90,6 +92,11 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
     try:
         owner_profile = np.array(input.owner_profile, dtype=np.float32)
 
+        trait = input.personality_trait or get_random_personality_trait()
+        personality_vec = np.array(
+            list(get_personality_trait_vector(trait).values()), dtype=np.float32
+        )
+
         all_features: List[np.ndarray] = []
         all_labels: List[int] = []
         group_sizes: List[int] = []
@@ -108,13 +115,10 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
                 np.array(context_vec, dtype=np.float32), (n, 1)
             )
             profile_tiled = np.tile(owner_profile, (n, 1))
-            # Neutral personality during training (zeros)
-            personality_zeros = np.zeros(
-                (n, input.personality_dim), dtype=np.float32
-            )
+            personality_tiled = np.tile(personality_vec, (n, 1))
 
             X_group = np.hstack([
-                player_array, profile_tiled, context_tiled, personality_zeros
+                player_array, profile_tiled, context_tiled, personality_tiled
             ])
             all_features.append(X_group)
 

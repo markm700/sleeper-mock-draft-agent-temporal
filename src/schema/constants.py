@@ -1,19 +1,26 @@
 import random
+from dataclasses import dataclass
 from typing import Dict
 from sqlalchemy.orm import Session
 from .database_models import User, TeamOwner
 
-TEAM_OWNER_FUN_FACT_MAP = {
-    "carleyzander": "Carley is not the first person in the league to push something big out of their body after weeks",
-    "markm700": "Mark listens to Gangnam Style and Harlem Shake every once in awhile",
-    "thehairykid": "Harry is an Xbox, the other owners are more Atari",
-    "claytontangen": "Clayton can quote almost any movie he has seen, excerpt High School Musical for some reason",
-    "silvertim101": "Be careful when you invite Nathan to a sleepover, he will NOT bring slippers",
-    "mshaide": "He hates Christmas because of advent calendars (calendar averse)",
-    "TreyFiddy": "Casey once broke his ankle sliding down a stair railing on the way to the bathroom",
-    "Jags2024Champs": "Despite being recently married, Cordell's favorite thing is still to type out \'a quick brown fox jumps over the lazy dog\'",
-    "einscobar": "He holds 2 distinct honors - first in the league to beat Monkey Ball 2 on Gamecube and first in the league to lose it twice",
-    "iggykesh": "Liam has still yet to post his ALS Ice Bucket Challenge video, despite being challenged by multiple people",
+
+@dataclass
+class TeamOwnerProfile:
+    value: str  # ML personality trait (must be a key in RANDOM_PERSONALITY_TRAITS values)
+
+
+TEAM_OWNER_FUN_FACT_MAP: Dict[str, TeamOwnerProfile] = {
+    "carleyzander":  TeamOwnerProfile(value="floor_preference"),
+    "markm700":      TeamOwnerProfile(value="contrarian"),
+    "thehairykid":   TeamOwnerProfile(value="upside_seeking"),
+    "claytontangen": TeamOwnerProfile(value="name_recognition"),
+    "silvertim101":  TeamOwnerProfile(value="adp_reach_tendency"),
+    "mshaide":       TeamOwnerProfile(value="floor_preference"),
+    "TreyFiddy":     TeamOwnerProfile(value="injury_tolerance"),
+    "Jags2024Champs":TeamOwnerProfile(value="positional_stubbornness"),
+    "einscobar":     TeamOwnerProfile(value="rookie_bias"),
+    "iggykesh":      TeamOwnerProfile(value="contrarian"),
 }
 
 RANDOM_PERSONALITY_TRAITS = {
@@ -50,13 +57,13 @@ def get_personality_trait(session: Session, user_id: str = None) -> str:
             .order_by(TeamOwner.updated_at.desc())
             .first()
         )
-        if team_owner and team_owner.personality_fun_fact:
-            return team_owner.personality_fun_fact
+        if team_owner and team_owner.personality_trait:
+            return team_owner.personality_trait
 
-        # 2. Fall back to User-level traits
+        # 2. Fall back to User-level trait
         user = session.query(User).filter(User.user_id == user_id).first()
-        if user and user.personality_fun_fact:
-            return user.personality_fun_fact
+        if user and user.personality_trait:
+            return user.personality_trait
 
     # 3. Generate random traits using RANDOM_PERSONALITY_TRAITS as the trait catalog
     return get_random_personality_trait()
@@ -80,6 +87,9 @@ def get_personality_trait_vector(personality_trait: str) -> Dict[str, float]:
     Returns:
         Dict[str, float]: Mapping from each trait name to a float value in [0, 1].
     """
+    known_traits = list(RANDOM_PERSONALITY_TRAITS.values())
+    if personality_trait not in known_traits:
+        personality_trait = random.choice(known_traits)
     vector = {personality_trait: float(0.7)}
-    vector.update({trait: random.random() for trait in RANDOM_PERSONALITY_TRAITS.values() if trait != personality_trait})
+    vector.update({trait: random.random() for trait in known_traits if trait != personality_trait})
     return vector

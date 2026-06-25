@@ -24,7 +24,8 @@ from temporalio import activity, workflow
 with workflow.unsafe.imports_passed_through():
     from activities.clients.postgres_client import get_postgres_client_manager
     from activities.ml.models.team_owner_model import OWNER_PROFILE_DIM
-    from schema.database_models import Draft, DraftPick, Player, TeamOwner
+    from schema.constants import get_random_personality_trait
+    from schema.database_models import Draft, DraftPick, Player, TeamOwner, User
 
 
 # Maximum number of negative examples to include per training sample.
@@ -114,6 +115,13 @@ async def prepare_owner_training_data(
                     f"TeamOwner not found: user_id={input.user_id} "
                     f"league_ids={all_league_ids}"
                 )
+
+            # Resolve personality trait: TeamOwner → User → random fallback
+            personality_trait = team_owner.personality_trait
+            if not personality_trait:
+                user = session.query(User).filter(User.user_id == input.user_id).first()
+                personality_trait = (user.personality_trait if user and user.personality_trait
+                                     else get_random_personality_trait())
 
             # Fetch drafts across all league_ids, optionally filtered by season
             draft_query = session.query(Draft).filter(Draft.league_id.in_(all_league_ids))
@@ -239,6 +247,7 @@ async def prepare_owner_training_data(
             return {
                 "training_samples": training_samples,
                 "owner_profile": owner_profile,
+                "personality_trait": personality_trait,
                 "num_samples": len(training_samples),
                 "user_id": input.user_id,
                 "league_id": input.league_id,
@@ -270,6 +279,7 @@ def _empty_result(input: PrepareOwnerTrainingDataParams) -> Dict[str, Any]:
     return {
         "training_samples": [],
         "owner_profile": [0.0] * OWNER_PROFILE_DIM,
+        "personality_trait": get_random_personality_trait(),
         "num_samples": 0,
         "user_id": input.user_id,
         "league_id": input.league_id,

@@ -14,8 +14,10 @@ with workflow.unsafe.imports_passed_through():
     from workflows.model_training import ModelTrainingWorkflow
     from workflows.league_model_training import LeagueModelTrainingWorkflow
     from workflows.model_prediction import ModelPredictionWorkflow
+    from workflows.mock_draft_simulation import MockDraftSimulationWorkflow
     # ML Activities
     from activities.ml.predictions.predict_player_pick import predict_owner_draft_pick, batch_predict_owner, get_player_features_from_db
+    from activities.ml.predictions.get_draft_simulation_context import get_draft_simulation_context
     from activities.ml.calculate_adp import calculate_adp_from_picks
     from activities.ml.models.manage_model import build_owner_model, get_model_status, list_models, delete_model
     from activities.ml.training.prepare_training_data import prepare_owner_training_data
@@ -55,6 +57,7 @@ async def main():
                     ModelTrainingWorkflow,
                     LeagueModelTrainingWorkflow,
                     ModelPredictionWorkflow,
+                    MockDraftSimulationWorkflow,
                 ],
                 activities=[
                     predict_owner_draft_pick,
@@ -68,6 +71,7 @@ async def main():
                     prepare_owner_training_data,
                     train_team_owner_model,
                     get_league_team_owners,
+                    get_draft_simulation_context,
                 ],
             )
             print("ML Workflow Worker started.")

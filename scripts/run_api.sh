@@ -77,6 +77,7 @@ Commands:
 
   --- Prediction ---
   predict             Run a draft pick prediction
+  simulate-draft      Run a full mock draft simulation using trained models
 
   --- Full Pipeline ---
   pipeline            Run the full pipeline: collect → train → verify
@@ -178,6 +179,81 @@ cmd_predict() {
         -d @"$body_file"
 }
 
+cmd_simulate_draft() {
+    local league_id="${1:?Error: league_id required. Usage: $0 simulate-draft <league_id> [additional_league_ids...]}"
+    shift
+
+    local url="/mock-draft-simulation/run?league_id=${league_id}"
+
+    # Remaining args are additional league IDs
+    for lid in "$@"; do
+        url="${url}&additional_league_ids=${lid}"
+    done
+
+    warn "Running full mock draft simulation (this may take several minutes)..."
+    info "League: ${league_id}"
+    [[ $# -gt 0 ]] && info "Historical leagues: $*"
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" -X POST "${BASE_URL}${url}" \
+        -H "Content-Type: application/json")
+
+    local http_code
+    http_code=$(echo "$response" | tail -n1)
+    local body
+    body=$(echo "$response" | sed '$d')
+
+    if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
+        log "HTTP ${http_code} — Mock draft simulation complete!"
+        echo ""
+
+        # Pretty-print the draft board
+        echo "$body" | python3 -c "
+import sys, json
+
+data = json.load(sys.stdin)
+result = data.get('result', data)
+board = result.get('draft_board', [])
+summary = result.get('summary_by_owner', {})
+
+if not board:
+    print('No draft picks generated.')
+    sys.exit(0)
+
+print(f\"{'='*70}\")
+print(f\"  MOCK DRAFT RESULTS — {result.get('num_picks', 0)} picks, {result.get('num_rounds', 0)} rounds\")
+print(f\"  Draft Type: {result.get('draft_type', 'snake')} | Teams: {result.get('num_teams', 0)}\")
+print(f\"{'='*70}\")
+print()
+print(f\"{'Pick':<5} {'Round':<6} {'Owner':<18} {'Player':<28} {'Pos':<5} {'Team':<5} {'ADP':<6}\")
+print(f\"{'-'*70}\")
+
+for pick in board:
+    name = (pick.get('player_name') or 'Unknown')[:27]
+    owner = (pick.get('display_name') or 'Unknown')[:17]
+    print(f\"{pick['pick_no']:<5} {pick['round']:<6} {owner:<18} {name:<28} {pick.get('position',''):<5} {pick.get('team',''):<5} {pick.get('adp', 999):<6.1f}\")
+
+print()
+print(f\"{'='*70}\")
+print('  TEAM SUMMARIES')
+print(f\"{'='*70}\")
+for uid, info in summary.items():
+    positions = info.get('positions_drafted', [])
+    pos_counts = {}
+    for p in positions:
+        pos_counts[p] = pos_counts.get(p, 0) + 1
+    pos_str = ', '.join(f'{k}:{v}' for k, v in sorted(pos_counts.items()))
+    print(f\"  {info['display_name']:<18} (slot {info['draft_slot']}) — {pos_str}\")
+print()
+" 2>/dev/null || echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body"
+    else
+        err "HTTP ${http_code}"
+        echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body"
+        return 1
+    fi
+    echo ""
+}
+
 cmd_pipeline() {
     local user="${1:-$USERNAME}"
     local league="${2:-$LEAGUE_NAME}"
@@ -261,10 +337,24 @@ else:
     info "Step 3: Listing trained models"
     api_call GET "/models"
 
+    # Step 4: Run mock draft simulation
+    info "Step 4: Running mock draft simulation..."
+    local sim_url="/mock-draft-simulation/run?league_id=${league_id}"
+    [[ -n "$additional_league_ids" ]] && sim_url="${sim_url}&${additional_league_ids}"
+    cmd_simulate_draft "${league_id}" $(echo "$collect_result" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+result = data.get('result', {})
+all_ids = result.get('all_league_ids', [])
+primary = result.get('league_id', '')
+others = [lid for lid in all_ids if lid != primary]
+print(' '.join(others))
+" 2>/dev/null)
+
     echo ""
-    log "Pipeline complete! Models are ready for predictions."
+    log "Pipeline complete! Mock draft simulation finished."
     echo ""
-    echo "  Next: $0 predict <model_name> <user_id> <body.json>"
+    echo "  To re-run simulation: $0 simulate-draft ${league_id} <historical_ids...>"
     echo ""
 }
 
@@ -299,6 +389,7 @@ case "$command" in
     model-delete)       cmd_model_delete "$@" ;;
     model-manage)       cmd_model_manage "$@" ;;
     predict)            cmd_predict "$@" ;;
+    simulate-draft)     cmd_simulate_draft "$@" ;;
     pipeline)           cmd_pipeline "$@" ;;
     help|--help|-h)     usage ;;
     *)

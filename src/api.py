@@ -412,6 +412,44 @@ async def rebuild_model(model_name: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to rebuild model: {e}")
 
 
+# Mock Draft Simulation Endpoint
+
+@app.post("/mock-draft-simulation/run")
+async def invoke_mock_draft_simulation_workflow(
+    league_id: str,
+    additional_league_ids: List[str] | None = Query(None),
+    num_rounds: int = 15,
+    draft_type: str = "snake",
+    personality_influence_scale: float | None = None,
+) -> Dict[str, Any]:
+    """Invoke the mock-draft-simulation workflow to simulate a full draft using trained models."""
+    connection_check()
+    workflow_name = "mock-draft-simulation"
+    try:
+        params = {
+            "league_id": league_id,
+            "additional_league_ids": additional_league_ids,
+            "num_rounds": num_rounds,
+            "draft_type": draft_type,
+            "personality_influence_scale": personality_influence_scale,
+        }
+        wf: WorkflowHandle = await app.state.temporal_client.start_workflow(
+            workflow_name,
+            args=[params],
+            id=f"workflow-{_safe_slug(workflow_name)}-{league_id}-{os.urandom(4).hex()}",
+            task_queue=temporal_ml_task_queue,
+        )
+        wf_result = await wf.result()
+
+        return {
+            "workflow_id": wf.id,
+            "run_id": wf.run_id,
+            "result": wf_result,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start mock draft simulation: {e}")
+
+
 # Model Prediction Endpoint
 
 @app.post("/model-prediction/run")
