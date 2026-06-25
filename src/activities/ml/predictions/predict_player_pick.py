@@ -122,7 +122,7 @@ class PredictOwnerDraftPickParams:
     user_id: Optional[str] = None
     model_name: str = "team_owner_draft_v1"
     personality_influence_scale: Optional[float] = None
-    adp_influence_scale: float = 2.0
+    adp_influence_scale: float = 4.0
 
 
 @activity.defn(name="predict_owner_draft_pick")
@@ -243,7 +243,7 @@ class BatchPredictOwnerParams:
     user_id: Optional[str] = None
     model_name: str = "team_owner_draft_v1"
     personality_influence_scale: Optional[float] = None
-    adp_influence_scale: float = 2.0
+    adp_influence_scale: float = 4.0
 
 
 @activity.defn(name="batch_predict_owner")

@@ -44,7 +44,7 @@ class MockDraftSimulationWorkflowParams:
     num_rounds: int = 15
     draft_type: str = "snake"
     personality_influence_scale: Optional[float] = None
-    adp_influence_scale: float = 2.0
+    adp_influence_scale: float = 4.0
 
 
 @workflow.defn(name="mock-draft-simulation")
