@@ -5,7 +5,141 @@ Provides a stub implementation of PostgresClientManager that records
 method calls without requiring a real database connection.
 """
 
-from typing import Any, Dict, List, Optional
+from contextlib import contextmanager
+from typing import Any, Dict, Generator, Iterator, List, Optional
+
+
+# ---------------------------------------------------------------------------
+# Session-level mocks for query-based activities
+# ---------------------------------------------------------------------------
+
+def _resolve_model_name_from_args(args: tuple) -> str:
+    """Infer SQLAlchemy model class name from query() positional args."""
+    if not args:
+        return ""
+    first = args[0]
+    # Direct class (e.g. session.query(Draft))
+    if isinstance(first, type):
+        return first.__name__
+    # InstrumentedAttribute (e.g. session.query(Draft.draft_id))
+    if hasattr(first, "class_"):
+        return first.class_.__name__
+    return ""
+
+
+def _resolve_model_name_from_select(stmt: Any) -> str:
+    """Infer model class name from a SQLAlchemy select() statement."""
+    _TABLE_TO_MODEL: Dict[str, str] = {
+        "players": "Player",
+        "drafts": "Draft",
+        "draft_picks": "DraftPick",
+        "traded_draft_picks": "TradedDraftPick",
+        "team_owners": "TeamOwner",
+        "users": "User",
+        "leagues": "League",
+        "rosters": "Roster",
+    }
+    try:
+        # get_final_froms() is the non-deprecated API (SQLAlchemy >= 1.4.23)
+        try:
+            froms = stmt.get_final_froms()
+        except AttributeError:
+            froms = stmt.froms  # fallback for older SQLAlchemy
+        if froms and hasattr(froms[0], "name"):
+            return _TABLE_TO_MODEL.get(froms[0].name, froms[0].name)
+    except Exception:
+        pass
+    return ""
+
+
+class DummyQueryChain:
+    """Chainable mock for SQLAlchemy query objects."""
+
+    def __init__(self, data: List[Any]) -> None:
+        self._data = data
+
+    def filter(self, *args: Any, **kwargs: Any) -> "DummyQueryChain":
+        return self
+
+    def filter_by(self, **kwargs: Any) -> "DummyQueryChain":
+        return self
+
+    def order_by(self, *args: Any) -> "DummyQueryChain":
+        return self
+
+    def where(self, *args: Any) -> "DummyQueryChain":
+        return self
+
+    def first(self) -> Optional[Any]:
+        return self._data[0] if self._data else None
+
+    def all(self) -> List[Any]:
+        return self._data
+
+
+class DummyScalars:
+    """Mock for SQLAlchemy ScalarResult."""
+
+    def __init__(self, data: List[Any]) -> None:
+        self._data = data
+
+    def all(self) -> List[Any]:
+        return self._data
+
+
+class DummyExecuteResult:
+    """Mock for SQLAlchemy CursorResult returned by session.execute()."""
+
+    def __init__(self, data: List[Any]) -> None:
+        self._data = data
+
+    def scalars(self) -> DummyScalars:
+        return DummyScalars(self._data)
+
+
+class DummySession:
+    """
+    Lightweight SQLAlchemy session mock for query-based activity tests.
+
+    Responses are configured per model name before calling the activity::
+
+        session = DummySession()
+        session.configure_query("Draft", [("draft_1",), ("draft_2",)])
+        session.configure_execute("Player", [mock_player_1, mock_player_2])
+    """
+
+    def __init__(self) -> None:
+        self._query_responses: Dict[str, List[Any]] = {}
+        self._execute_responses: Dict[str, List[Any]] = {}
+        self.queries_made: List[str] = []
+        self.executes_made: List[str] = []
+
+    def configure_query(self, model_name: str, results: List[Any]) -> None:
+        """Pre-configure query() results for a given model name."""
+        self._query_responses[model_name] = results
+
+    def configure_execute(self, model_name: str, results: List[Any]) -> None:
+        """Pre-configure execute() results for a given model name."""
+        self._execute_responses[model_name] = results
+
+    # Context manager protocol (mirrors SQLAlchemy Session behaviour)
+    def __enter__(self) -> "DummySession":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        pass
+
+    def query(self, *args: Any) -> DummyQueryChain:
+        model_name = _resolve_model_name_from_args(args)
+        self.queries_made.append(model_name)
+        data = self._query_responses.get(model_name, [])
+        return DummyQueryChain(data)
+
+    def execute(self, stmt: Any) -> DummyExecuteResult:
+        model_name = _resolve_model_name_from_select(stmt)
+        self.executes_made.append(model_name)
+        data = self._execute_responses.get(model_name, [])
+        return DummyExecuteResult(data)
 
 
 class DummyPostgresClient:
@@ -26,6 +160,21 @@ class DummyPostgresClient:
         self.connection_checks: int = 0
         self.table_creations: int = 0
         self.table_drops: int = 0
+        self._session = DummySession()
+
+    @property
+    def session(self) -> DummySession:
+        """Expose the underlying DummySession for query configuration in tests."""
+        return self._session
+
+    def get_session(self) -> DummySession:
+        """Return the shared DummySession (supports context manager protocol)."""
+        return self._session
+
+    @contextmanager
+    def session_scope(self) -> Generator[DummySession, None, None]:
+        """Yield the shared DummySession within a no-op transaction scope."""
+        yield self._session
 
     def upsert_record(
         self,
@@ -212,6 +361,7 @@ class DummyPostgresClient:
         self.connection_checks = 0
         self.table_creations = 0
         self.table_drops = 0
+        self._session = DummySession()
 
 
 # Module-level singleton for reuse across tests (mirrors real client pattern)

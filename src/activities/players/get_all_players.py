@@ -8,15 +8,11 @@ with workflow.unsafe.imports_passed_through():
 
 @activity.defn(name="get_all_player_data")
 async def get_all_player_data() -> Dict[str, Any]:
-    """Activity to fetch all NFL player data from Sleeper API and batch upsert to database.
-    
-    The Sleeper API returns a large dict where keys are player_ids and values are player objects.
-    This activity processes all players and batch upserts them to the Player table.
-    
+    """
+    Fetch all NFL player data from the Sleeper API and batch upsert to the database.
+
     Returns:
-        Dict containing:
-            - total_players: Total number of players fetched
-            - upserted_players: Number of players upserted to database
+        Dict[str, Any]: {"total_found_players": int, "upserted_players": int}
     """
     sleeper = get_sleeper_client_manager()
     postgres = get_postgres_client_manager()

@@ -50,7 +50,7 @@ class Config:
             database_url=os.getenv("DATABASE_URL", "postgresql://localhost:5432/db"),
             database_pool_size=int(os.getenv("DATABASE_POOL_SIZE", "10")),
             temporal_host=os.getenv("TEMPORAL_HOST", "localhost:7233"),
-            log_level=os.getenv("LOG_LEVEL", "INFO"),
+            log_level=log_level,
         )
 
 _config: Optional[Config] = None

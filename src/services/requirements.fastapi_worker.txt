@@ -1,5 +1,4 @@
 fastapi[standard]
+temporalio==1.21.1
 pytest
 pytest-asyncio
-slugify
-temporalio==1.21.1

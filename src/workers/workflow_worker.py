@@ -6,13 +6,16 @@ from temporalio.worker import Worker
 from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
+    # Service/Client Managers
     from activities.clients.postgres_client import get_postgres_client_manager
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
+    # Data Collection Workflows
     from workflows.team_owner_data_collection import TeamOwnerDataCollectionWorkflow
     from workflows.league_data_collection import LeagueDataCollectionWorkflow
     from workflows.draft_data_collection import DraftDataCollectionWorkflow
     from workflows.player_data_collection import PlayerDataCollectionWorkflow
     from workflows.full_data_collection import FullDataCollectionWorkflow
+    # Data Collection Activities
     from activities.draft.get_drafts import get_league_drafts
     from activities.draft.get_draft_picks import get_specific_draft_picks
     from activities.draft.get_traded_draft_picks import get_traded_draft_picks
@@ -55,16 +58,16 @@ async def main():
                     LeagueDataCollectionWorkflow,
                     DraftDataCollectionWorkflow,
                     PlayerDataCollectionWorkflow,
-                    FullDataCollectionWorkflow
+                    FullDataCollectionWorkflow,
                 ],
                 activities=[
                     get_league_data,
                     get_league_drafts,
                     get_specific_draft_picks,
                     get_traded_draft_picks,
-                    get_team_owner_rosters, 
+                    get_team_owner_rosters,
                     get_team_owner_data,
-                    get_all_player_data
+                    get_all_player_data,
                 ],
             )
             print("Workflow Worker started.")

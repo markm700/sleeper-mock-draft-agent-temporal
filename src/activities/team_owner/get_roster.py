@@ -7,14 +7,28 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class GetLeagueRosterParams:
-    """Parameters for fetching league rosters, optionally filtered by owner."""
+    """
+    Parameters for fetching league rosters, optionally filtered by owner.
+
+    Args:
+        league_id: Sleeper league identifier.
+        user_id: Owner's Sleeper user ID to filter rosters. None returns all rosters.
+    """
 
     league_id: str
     user_id: Optional[str] = None
 
 @activity.defn(name="get_team_owner_rosters")
 async def get_team_owner_rosters(input: GetLeagueRosterParams) -> Dict[str, Any]:
-    """Activity to fetch rosters for a league, optionally by owner ID."""
+    """
+    Fetch rosters for a league, optionally filtered to a single owner.
+
+    Args:
+        input: GetLeagueRosterParams with league_id and optional user_id.
+
+    Returns:
+        Dict[str, Any]: {"roster": [...]} if user_id provided, else {"rosters": [...]}.
+    """
 
     sleeper = get_sleeper_client_manager()
 

@@ -1,0 +1,6 @@
+FROM python:3.12-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+COPY . .
+RUN pip install --no-cache-dir -r ./services/requirements.ml_worker_service.txt
+CMD ["python", "-m", "workers.ml_worker"]

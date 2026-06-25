@@ -10,7 +10,13 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class TeamOwnerDataCollectionWorkflowParams:
-    """Input parameters for the team owner data collection workflow."""
+    """
+    Input parameters for the team owner data collection workflow.
+
+    Fields:
+        username: Sleeper username for the team owner.
+        league_name: Human-readable league name used to filter leagues.
+    """
 
     username: str
     league_name: str
@@ -21,7 +27,18 @@ class TeamOwnerDataCollectionWorkflow:
 
     @workflow.run
     async def run(self, params: TeamOwnerDataCollectionWorkflowParams) -> Dict[str, Any]:
-        """Execute the team owner data collection workflow."""
+        """
+        Execute the team owner data collection workflow.
+
+        Fetches team owner data and iterates over all their leagues to collect
+        roster data for each season.
+
+        Args:
+            params: TeamOwnerDataCollectionWorkflowParams with username and league_name.
+
+        Returns:
+            Dict[str, Any]: {"activity_data": [{"activity": str, ...}, ...]}
+        """
         wf_hex = workflow.info().run_id[-4:]
         workflow_activities = []
         activity_retry_policy = RetryPolicy(

@@ -1,0 +1,14 @@
+temporalio==1.21.1
+pytest
+pytest-asyncio
+
+# PostgreSQL
+SQLAlchemy>=2.0
+psycopg2-binary
+
+# ML
+scikit-learn>=1.4
+lightgbm>=4.3
+pandas>=2.2
+numpy>=1.26
+joblib>=1.3

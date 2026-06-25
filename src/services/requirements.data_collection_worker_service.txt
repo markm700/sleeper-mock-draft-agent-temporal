@@ -1,0 +1,11 @@
+httpx[standard]
+temporalio==1.21.1
+pytest
+pytest-asyncio
+
+# PostgreSQL
+SQLAlchemy>=2.0
+psycopg2-binary
+
+# Numerical utilities
+numpy>=1.24.0

@@ -8,15 +8,19 @@ with workflow.unsafe.imports_passed_through():
 
 @workflow.defn(name="player-data-collection")
 class PlayerDataCollectionWorkflow:
-    """Workflow that collects draft and draft-pick trade data for a league."""
+    """
+    Workflow that fetches all NFL player data and upserts it to the database.
+    """
 
     @workflow.run
     async def run(self) -> Dict[str, Any]:
-        """Execute the draft data collection workflow.
+        """
+        Execute the player data collection workflow.
 
-        This workflow runs activities to fetch league drafts and specific draft
-        picks (including traded picks) for the given league, and aggregates
-        their results into a single response payload.
+        Fetches all NFL players from the Sleeper API and upserts them to the database.
+
+        Returns:
+            Dict[str, Any]: {"activity_data": [{"activity": "get_all_player_data", ...}]}
         """
         wf_hex = workflow.info().run_id[-4:]
         workflow_activities = []
@@ -30,7 +34,7 @@ class PlayerDataCollectionWorkflow:
         # Get Players Data Activity
         player_upsert_data = await workflow.execute_activity(
             get_all_player_data,
-            start_to_close_timeout=timedelta(seconds=30),
+            start_to_close_timeout=timedelta(minutes=5),
             activity_id=f"activity-get_all_player_data-{wf_hex}",
             retry_policy=activity_retry_policy,
         )

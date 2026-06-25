@@ -11,11 +11,12 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class DraftDataCollectionWorkflowParams:
-    """Input parameters for the draft data collection workflow.
+    """
+    Input parameters for the draft data collection workflow.
 
-    Attributes:
+    Fields:
         league_id: Sleeper league identifier to collect draft data for.
-        season: Season year to filter traded draft picks (defaults to 2025).
+        season: Season year to filter traded draft picks (default "2025").
     """
 
     league_id: str
@@ -27,11 +28,17 @@ class DraftDataCollectionWorkflow:
 
     @workflow.run
     async def run(self, params: DraftDataCollectionWorkflowParams) -> Dict[str, Any]:
-        """Execute the draft data collection workflow.
+        """
+        Execute the draft data collection workflow.
 
-        This workflow runs activities to fetch league drafts and specific draft
-        picks (including traded picks) for the given league, and aggregates
-        their results into a single response payload.
+        Fetches league drafts, specific draft picks, and traded draft picks
+        for the given league and aggregates results into a single payload.
+
+        Args:
+            params: DraftDataCollectionWorkflowParams with league_id and season.
+
+        Returns:
+            Dict[str, Any]: {"activity_data": [{"activity": str, ...}, ...]}
         """
         wf_hex = workflow.info().run_id[-4:]
         workflow_activities = []
@@ -56,21 +63,28 @@ class DraftDataCollectionWorkflow:
             "draft_data": draft_data
         })
 
-        # Get Draft Picks Data Activity
-        draft_id = draft_data["league_drafts"][0]["draft_id"]
-        draft_picks = await workflow.execute_activity(
-            get_specific_draft_picks,
-            GetSpecificDraftPicksParams(draft_id=draft_id),
-            start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}-{wf_hex}",
-            retry_policy=activity_retry_policy,
-        )
-        print(f"Specific Draft Picks Activity result: {len(draft_picks.get('draft_picks', []))} picks for draft {draft_id}")
-        workflow_activities.append({
-            "activity": "get_specific_draft_picks",
-            "total_draft_picks": len(draft_picks.get("draft_picks", [])),
-            "draft_picks": draft_picks
-        })
+        # Get Draft Picks Data Activity — iterate ALL drafts
+        total_picks_collected = 0
+        for draft in draft_data["league_drafts"]:
+            draft_id = draft["draft_id"]
+            draft_picks = await workflow.execute_activity(
+                get_specific_draft_picks,
+                GetSpecificDraftPicksParams(draft_id=draft_id),
+                start_to_close_timeout=timedelta(seconds=30),
+                activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}-{wf_hex}",
+                retry_policy=activity_retry_policy,
+            )
+            num_picks = len(draft_picks.get("draft_picks", []))
+            total_picks_collected += num_picks
+            print(f"Specific Draft Picks Activity result: {num_picks} picks for draft {draft_id}")
+            workflow_activities.append({
+                "activity": "get_specific_draft_picks",
+                "draft_id": draft_id,
+                "total_draft_picks": num_picks,
+                "draft_picks": draft_picks
+            })
+
+        print(f"Total draft picks collected: {total_picks_collected} across {len(draft_data['league_drafts'])} drafts")
 
         # Get Draft Pick Trade Data Activity
         draft_pick_trades = await workflow.execute_activity(

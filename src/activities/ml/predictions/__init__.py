@@ -1,0 +1,1 @@
+"""Predictions outputted by models that can be used in activities"""

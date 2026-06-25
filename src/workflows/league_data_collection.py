@@ -10,7 +10,12 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class LeagueDataCollectionWorkflowParams:
-    """Input parameters for the league data collection workflow."""
+    """
+    Input parameters for the league data collection workflow.
+
+    Fields:
+        league_id: Sleeper league identifier.
+    """
 
     league_id: str
 
@@ -20,7 +25,18 @@ class LeagueDataCollectionWorkflow:
 
     @workflow.run
     async def run(self, params: LeagueDataCollectionWorkflowParams) -> Dict[str, Any]:
-        """Execute the league data collection workflow."""
+        """
+        Execute the league data collection workflow.
+
+        Fetches league metadata, users, and rosters, then runs the
+        draft data collection child workflow.
+
+        Args:
+            params: LeagueDataCollectionWorkflowParams with league_id.
+
+        Returns:
+            Dict[str, Any]: {"activity_data": [{"activity": str, ...}, ...]}
+        """
         wf_hex = workflow.info().run_id[-4:]
         workflow_activities = []
         activity_retry_policy = RetryPolicy(

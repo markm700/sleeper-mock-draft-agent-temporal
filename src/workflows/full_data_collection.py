@@ -10,9 +10,14 @@ with workflow.unsafe.imports_passed_through():
     from workflows.player_data_collection import PlayerDataCollectionWorkflow
 
 def _safe_slug(text: str | None) -> str:
-    """Create a simple, deterministic slug for workflow IDs.
+    """
+    Build a safe slug from text for use in workflow IDs.
 
-    Uses only lowercase ASCII letters, digits, and dashes.
+    Args:
+        text: Input string to slugify. None returns "value".
+
+    Returns:
+        str: Lowercase alphanumeric slug with underscores, e.g. "my_league_2025".
     """
 
     if not text:
@@ -29,9 +34,10 @@ def _safe_slug(text: str | None) -> str:
 
 @dataclass
 class FullDataCollectionWorkflowParams:
-    """Input parameters for the combined team owner + league data workflow.
+    """
+    Input parameters for the full data collection workflow.
 
-    Attributes:
+    Fields:
         username: Sleeper username for the team owner.
         league_name: Human-readable league name used to filter leagues.
     """
@@ -42,15 +48,33 @@ class FullDataCollectionWorkflowParams:
 
 @workflow.defn(name="full-data-collection")
 class FullDataCollectionWorkflow:
-    """Workflow that chains team owner data collection with league data collection.
+    """
+    Workflow that chains team-owner, league, and player data collection.
 
-    It first runs the team-owner-data-collection workflow to resolve the
-    appropriate league for the given user and league name, then runs the
-    league-data-collection workflow for that league.
+    Resolves the league_id for the given username and league_name, then runs
+    team-owner-data-collection, league-data-collection, and player-data-collection
+    as sequential child workflows.
     """
 
     @workflow.run
     async def run(self, params: FullDataCollectionWorkflowParams) -> Dict[str, Any]:
+        """
+        Execute the full data collection workflow.
+
+        Chains three child workflows: team-owner, league, and player data collection.
+        Resolves the target league_id by matching league_name in the owner's leagues.
+
+        Args:
+            params: FullDataCollectionWorkflowParams with username and league_name.
+
+        Returns:
+            Dict[str, Any]: {
+                "username": str,
+                "league_name": str,
+                "league_id": str,
+                "workflow_data": [...],
+            }
+        """
         wf_hex = workflow.info().run_id[-4:]
         child_workflow_results: list[Dict[str, Any]] = []
         child_retry_policy = RetryPolicy(
@@ -98,34 +122,44 @@ class FullDataCollectionWorkflow:
             reverse=True,
         )
 
+        # Collect ALL league_ids for the matching league name across all seasons
+        all_league_ids: list[str] = []
         for season in seasons_sorted:
             leagues = user_leagues.get(season, [])
             for league in leagues:
                 if league.get("name") == params.league_name:
-                    league_id = league.get("league_id")
-                    break
-            if league_id is not None:
-                break
-        if league_id is None:
+                    all_league_ids.append(league.get("league_id"))
+
+        if not all_league_ids:
             raise ValueError(f"No league_id found for league_name='{params.league_name}' in user_leagues")
 
-        # Step 2: Run league-data-collection as a child workflow for this league
-        league_result: Dict[str, Any] = await workflow.execute_child_workflow(
-            LeagueDataCollectionWorkflow.run,
-            LeagueDataCollectionWorkflowParams(league_id=league_id),
-            id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{league_id}-{wf_hex}",
-            retry_policy=child_retry_policy,
-            run_timeout=timedelta(minutes=30),
-            execution_timeout=timedelta(minutes=60),
-            task_timeout=timedelta(minutes=10),
+        # Use the most recent league_id as the primary
+        league_id = all_league_ids[0]
+        print(
+            f"Found {len(all_league_ids)} seasons for '{params.league_name}': "
+            f"{all_league_ids}"
         )
-        child_workflow_results.append(
-            {
-                "workflow": "league-data-collection",
-                "league_id": league_id,
-                "result": league_result,
-            }
-        )
+
+        # Step 2: Run league-data-collection for ALL seasons of this league
+        for idx, lid in enumerate(all_league_ids):
+            league_result: Dict[str, Any] = await workflow.execute_child_workflow(
+                LeagueDataCollectionWorkflow.run,
+                LeagueDataCollectionWorkflowParams(league_id=lid),
+                id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{lid}-{wf_hex}",
+                retry_policy=child_retry_policy,
+                run_timeout=timedelta(minutes=30),
+                execution_timeout=timedelta(minutes=60),
+                task_timeout=timedelta(minutes=10),
+            )
+            child_workflow_results.append(
+                {
+                    "workflow": "league-data-collection",
+                    "league_id": lid,
+                    "season_index": idx,
+                    "result": league_result,
+                }
+            )
+            print(f"League data collected for league_id={lid} ({idx + 1}/{len(all_league_ids)})")
 
         # Step 3: Run player-data-collection as a child workflow for this league
         players_result: Dict[str, Any] = await workflow.execute_child_workflow(
@@ -147,5 +181,6 @@ class FullDataCollectionWorkflow:
             "username": params.username,
             "league_name": params.league_name,
             "league_id": league_id,
+            "all_league_ids": all_league_ids,
             "workflow_data": child_workflow_results,
         }

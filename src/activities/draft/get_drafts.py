@@ -9,13 +9,26 @@ with workflow.unsafe.imports_passed_through():
 
 @dataclass
 class GetLeagueDraftsParams:
-    """Parameters for fetching all drafts for a league."""
+    """
+    Parameters for fetching all drafts for a league.
+
+    Fields:
+        league_id: Sleeper league identifier.
+    """
 
     league_id: str
 
 @activity.defn(name="get_league_drafts")
 async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
-    """Activity to fetch all drafts associated with a league."""
+    """
+    Fetch all drafts for a league from the Sleeper API and upsert to the database.
+
+    Args:
+        input: GetLeagueDraftsParams with league_id.
+
+    Returns:
+        Dict[str, Any]: {"league_drafts": [...]} raw list of draft dicts from Sleeper.
+    """
     sleeper = get_sleeper_client_manager()
     postgres = get_postgres_client_manager()
 
