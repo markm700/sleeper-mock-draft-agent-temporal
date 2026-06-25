@@ -343,13 +343,13 @@ def _prepare_player_features_only(player_features: List[Dict[str, Any]]) -> np.n
     vectors = []
     for p in player_features:
         vectors.append([
-            float(position_map.get(p.get("position", ""), -1)),
-            status_map.get(p.get("status", "Active"), 0.5),
-            p.get("age", 25) / 100.0,
-            p.get("years_exp", 0) / 20.0,
-            1.0 / (p.get("adp", 999) + 1),
-            p.get("projected_points", 0.0) / 400.0,
-            1.0 / (p.get("position_rank", 999) + 1),
+            float(position_map.get(p.get("position") or "", -1)),
+            status_map.get(p.get("status") or "Active", 0.5),
+            (p.get("age") or 25) / 100.0,
+            (p.get("years_exp") or 0) / 20.0,
+            1.0 / ((p.get("adp") or 999) + 1),
+            (p.get("projected_points") or 0.0) / 400.0,
+            1.0 / ((p.get("position_rank") or 999) + 1),
             1.0 if p.get("team") else 0.0,
             1.0 if p.get("injury_status") else 0.0,
         ])
