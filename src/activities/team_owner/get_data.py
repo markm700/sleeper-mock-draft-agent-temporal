@@ -35,24 +35,24 @@ async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
 
     sleeper = get_sleeper_client_manager()
     postgres = get_postgres_client_manager()
-    
+
     try:
         user_data = await sleeper.get_user(input.username)
         user_id = user_data.get("user_id")
-        
+
         if not user_id:
             raise ValueError(f"No user_id found for username: {input.username}")
-            
+
         print(f"Team Owner {input.username} User Id = {user_id}")
 
         user_leagues = await sleeper.get_user_leagues(user_id=user_id, league_name=input.league_name)
-        
+
         # DB data - upsert user
-        username = user_data.get("username", user_data.get("display_name"))  # Fallback to display_name if username is missing
+        username = user_data.get("username") or user_data.get("display_name")
         if not username:
             raise ValueError(f"Missing required fields for user {user_id}: username={username}")
-        
-        # Add personality fun fact and trait if available
+
+        # Add personality trait if available, else random
         owner_profile = TEAM_OWNER_FUN_FACT_MAP.get(username)
         personality_trait = owner_profile.value if owner_profile else get_random_personality_trait()
 

@@ -9,7 +9,7 @@ the relevant document among MAX_NEGATIVES + 1 candidates per query group.
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import lightgbm as lgb
 import numpy as np

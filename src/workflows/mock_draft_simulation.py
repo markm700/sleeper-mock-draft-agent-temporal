@@ -6,7 +6,7 @@ draft order, runs the prediction activity with the appropriate owner's model
 and removes the selected player from the available pool.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
