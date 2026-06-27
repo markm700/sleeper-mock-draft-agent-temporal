@@ -74,7 +74,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
             if not user_id:
                 print(f"Skipping user with missing required fields: user_id={user_id}")
                 continue
-            
+
             # Add personality trait if available, else random
             owner_profile = TEAM_OWNER_FUN_FACT_MAP.get(username)
             personality_trait = owner_profile.value if owner_profile else get_random_personality_trait()

@@ -34,9 +34,6 @@ env/
 *.swo
 *~
 
-# Claude Code (local session settings)
-.claude/
-
 # Environment Variables
 .env
 .env.local
