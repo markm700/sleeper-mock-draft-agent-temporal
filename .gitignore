@@ -1,6 +1,3 @@
-# AI Generated
-src/ai-generated/
-
 # Python
 __pycache__/
 *.py[cod]
@@ -36,6 +33,9 @@ env/
 *.swp
 *.swo
 *~
+
+# Claude Code (local session settings)
+.claude/
 
 # Environment Variables
 .env
@@ -79,6 +79,7 @@ dmypy.json
 # Exports
 exports/
 *.csv
+
 # OS
 .DS_Store
 Thumbs.db
@@ -90,4 +91,6 @@ Thumbs.db
 mock-draft-agent-guides/
 custom-specs/
 LICENSE.md
-models/
+
+## AI Generated (Early Context)
+src/ai-generated/

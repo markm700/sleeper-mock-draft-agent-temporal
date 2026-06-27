@@ -33,7 +33,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
 
     sleeper = get_sleeper_client_manager()
     postgres = get_postgres_client_manager()
-    
+
     try:
         league_data = await sleeper.get_league(input.league_id)
         print(f"League {input.league_id} League Id =  {input.league_id}")
@@ -69,13 +69,13 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
         owner_records = []
         for user in league_users:
             user_id = user.get("user_id")
-            username = user.get("username", user.get("display_name")),  # Fallback to display_name if username is missing
+            username = user.get("username") or user.get("display_name")
             # Skip users without required fields
             if not user_id:
                 print(f"Skipping user with missing required fields: user_id={user_id}")
                 continue
             
-            # Add personality fun fact and trait if available
+            # Add personality trait if available, else random
             owner_profile = TEAM_OWNER_FUN_FACT_MAP.get(username)
             personality_trait = owner_profile.value if owner_profile else get_random_personality_trait()
 
@@ -98,7 +98,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
                     "personality_trait": get_random_personality_trait(),
                 }
             )
-            print(f"Successfully added team owner {user_id} for league {input.league_id} to be batch upserted into database")
+            print(f"Queued team owner {user_id} for league {input.league_id} for batch upsert")
         postgres.upsert_records(
             model=User,
             records=user_records,
@@ -113,7 +113,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
             update_columns=["display_name", "is_owner", "is_bot"]
         )
         print(f"Successfully batch upserted {len(owner_records)} team owners for league {input.league_id} to database")
-        
+
         league_rosters = await sleeper.get_league_rosters(league_id=input.league_id)
         print(f"League {input.league_id} League Rosters =  {len(league_rosters)}")
         # DB data - League Rosters
@@ -137,7 +137,10 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
             model=Roster,
             records=roster_records,
             conflict_columns=["league_id", "roster_id"],
-            update_columns=["owner_id", "players", "starters", "keepers", "roster_settings", "reserve", "taxi", "co_owners", "api_metadata"]
+            update_columns=[
+                "owner_id", "players", "starters", "keepers",
+                "roster_settings", "reserve", "taxi", "co_owners", "api_metadata",
+            ]
         )
         print(f"Successfully batch upserted {len(roster_records)} rosters for league {input.league_id} to database")
 
