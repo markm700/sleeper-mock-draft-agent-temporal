@@ -10,7 +10,7 @@ When working with Temporal workflows in this project:
 
 - Use `@workflow.defn` decorator on workflow classes with `name` parameter for workflow ID
 - Define `@workflow.run` async method as entry point  
-- Use dataclasses for inputs with naming pattern: `{WorkflowName}Params` or `{WorkflowName}Input`
+- Use dataclasses from pydantic.dataclasses  for inputs with naming pattern: `{WorkflowName}Params` or `{WorkflowName}Input`
 - All external calls (API, child workflows) MUST be via `workflow.execute_activity()` or `workflow.execute_child_workflow()`
 - Use relative imports for activities (e.g., `from activities.draft.get_drafts import...`)
 
@@ -43,7 +43,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.league.get_data import get_league_data, GetLeagueDataParams
     from workflows.draft_data_collection import DraftDataCollectionWorkflow, DraftDataCollectionWorkflowParams
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MyWorkflowParams:
     """Input parameters for MyWorkflow."""
     league_id: str

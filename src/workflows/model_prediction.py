@@ -1,6 +1,6 @@
 """Model prediction workflow for team owner draft pick inference."""
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -18,7 +18,7 @@ with workflow.unsafe.imports_passed_through():
     )
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class ModelPredictionWorkflowParams:
     """
     Input parameters for ModelPredictionWorkflow.

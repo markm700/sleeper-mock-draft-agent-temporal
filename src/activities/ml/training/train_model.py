@@ -7,7 +7,7 @@ the relevant document among MAX_NEGATIVES + 1 candidates per query group.
 """
 
 import os
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -26,7 +26,7 @@ with workflow.unsafe.imports_passed_through():
     from schema.constants import get_personality_trait_vector, get_random_personality_trait
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class TrainTeamOwnerModelParams:
     """
     Parameters for training a team owner draft prediction model.

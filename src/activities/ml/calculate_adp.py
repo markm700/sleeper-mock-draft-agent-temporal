@@ -6,7 +6,7 @@ Output is structured to feed directly into get_player_features_from_db as adp_da
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 from temporalio import activity, workflow
 
@@ -15,7 +15,7 @@ with workflow.unsafe.imports_passed_through():
     from schema.database_models import DraftPick, Draft
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class CalculateADPFromPicksParams:
     """
     Parameters for calculating ADP from stored draft pick records.

@@ -16,7 +16,7 @@ The output is structured for direct consumption by train_team_owner_model.
 """
 
 from collections import defaultdict
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from temporalio import activity, workflow
@@ -45,7 +45,7 @@ _ROUND_NORM = 18.0
 _PICK_NORM = 200.0
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class PrepareOwnerTrainingDataParams:
     """
     Parameters for preparing training data for a single team owner's model.

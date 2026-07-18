@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import activity, workflow
 
@@ -7,7 +7,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.clients.postgres_client import get_postgres_client_manager
     from schema.database_models import Draft
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetLeagueDraftsParams:
     """
     Parameters for fetching all drafts for a league.

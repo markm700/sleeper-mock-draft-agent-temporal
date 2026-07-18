@@ -31,14 +31,14 @@ Use this skill to create a new Temporal workflow that follows project convention
 
 ```python
 from temporalio import workflow
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Dict, Any
 
 with workflow.unsafe.imports_passed_through():
     from activities.draft.get_drafts import GetLeagueDraftsParams
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class DraftDataCollectionParams:
     """Input parameters for DraftDataCollectionWorkflow"""
     league_id: str
@@ -82,7 +82,7 @@ class DraftDataCollectionWorkflow:
 
 ```python
 from temporalio import workflow
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Dict, Any
 
@@ -96,7 +96,7 @@ with workflow.unsafe.imports_passed_through():
         DraftDataCollectionWorkflow
     )
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class FullDataCollectionParams:
     """Input parameters for full data collection"""
     username: str

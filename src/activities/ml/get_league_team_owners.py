@@ -5,7 +5,7 @@ Used by LeagueModelTrainingWorkflow to discover which owners need models
 trained before orchestrating per-owner training child workflows.
 """
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from temporalio import activity, workflow
@@ -15,7 +15,7 @@ with workflow.unsafe.imports_passed_through():
     from schema.database_models import TeamOwner
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetLeagueTeamOwnersParams:
     """
     Parameters for fetching team owners in a league.

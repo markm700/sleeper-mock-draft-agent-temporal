@@ -45,7 +45,7 @@ Common development tasks have detailed guides in `.github/skills/`:
 
 ### Type System & Code Quality
 - ✅ All functions/parameters have explicit type hints (mypy compliant)
-- ✅ Use `@dataclass` for workflow inputs/outputs and API models
+- ✅ Use `@dataclass` from pydantic.dataclasses for workflow inputs/outputs and API models
 - ✅ All code is `async def` with proper `await`
 - ✅ Line length 100 chars, black formatting, ruff linting
 - ✅ Use `Dict[str, Any]` for JSON from APIs, minimize `Any` elsewhere

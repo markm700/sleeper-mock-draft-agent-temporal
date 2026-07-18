@@ -35,6 +35,7 @@ Provides async client for interacting with {API Name} API.
 """
 
 import httpx
+from pydantic.dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 
 class {API}Client:
@@ -162,7 +163,7 @@ async def list_{resources}(params: Dict[str, Any]) -> List[Dict[str, Any]]:
 Add API configuration to `src/utils/config.py`:
 
 ```python
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class Config:
     """Application configuration"""
     
@@ -200,11 +201,11 @@ Add to `.env.example`:
 Create response models in `src/models/api_models.py`:
 
 ```python
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Optional, Dict, List, Any
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class {Resource}Response:
     """
     {API Name} API {resource} response.

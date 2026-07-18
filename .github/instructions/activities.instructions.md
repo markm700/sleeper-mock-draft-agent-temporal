@@ -12,7 +12,7 @@ When working with Temporal activities in this project:
 - Use `print()` for logging (simpler than activity.logger)
 - Always include try/except with error logging before raising
 - All activities MUST be async
-- Use dataclasses for activity parameters
+- Use dataclasses from pydantic.dataclasses for activity parameters
 - Return `Dict[str, Any]` for structured results
 
 ## Sleeper API Activities
@@ -23,21 +23,21 @@ For Sleeper API calls using httpx AsyncClient:
 - All Sleeper API methods are already async (NO need for asyncio.to_thread)
 - Client has built-in timeout of 30 seconds
 - Return wrapped in dict with descriptive key (e.g., `{"league_data": ...}`)
-- Use dataclass for parameters
+- Use dataclass from pydantic.dataclasses for parameters
 - Sleeper API is read-only—NO POST, PUT, DELETE operations
 - NO authentication headers required
 - Use relative imports from activities (e.g., `from ..clients.sleeper_client_credential import...`)
 
 Example:
 ```python
-from dataclasses import dataclass
+from from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetLeagueDataParams:
     """Parameters for fetching league data."""
     league_id: str
@@ -61,7 +61,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
 Activities can include business logic like filtering:
 
 ```python
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetTradedDraftPicksParams:
     """Parameters for fetching traded picks for a league."""
     league_id: str

@@ -6,7 +6,7 @@ a ModelTrainingWorkflow child workflow for each owner. This avoids redundant
 ADP computation and provides a single workflow to train all 10 (or N) models.
 """
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -22,7 +22,7 @@ with workflow.unsafe.imports_passed_through():
     from workflows.model_training import ModelTrainingWorkflow, ModelTrainingWorkflowParams
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class LeagueModelTrainingWorkflowParams:
     """
     Input parameters for LeagueModelTrainingWorkflow.
