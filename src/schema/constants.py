@@ -1,11 +1,11 @@
 import random
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict
 from sqlalchemy.orm import Session
 from .database_models import User, TeamOwner
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class TeamOwnerProfile:
     value: str  # ML personality trait (must be a key in RANDOM_PERSONALITY_TRAITS values)
 

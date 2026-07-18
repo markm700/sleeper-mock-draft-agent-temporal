@@ -29,10 +29,10 @@ One or two sentences describing the purpose of this skill and what it helps Clau
 
 ```python
 # Minimal working example that follows the project standard
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class ExampleParams:
     """
     Parameters for the example operation.

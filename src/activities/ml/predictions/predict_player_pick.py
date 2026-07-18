@@ -6,7 +6,7 @@ returns ranked predictions with pick probabilities.
 """
 
 import random
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -30,7 +30,7 @@ with workflow.unsafe.imports_passed_through():
 _ADP_FEATURE_COLS = slice(4, 7)
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetPlayerFeaturesParams:
     """
     Parameters for fetching player features from PostgreSQL.
@@ -102,7 +102,7 @@ async def get_player_features_from_db(input: GetPlayerFeaturesParams) -> Dict[st
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class PredictOwnerDraftPickParams:
     """
     Parameters for team-owner-centric draft pick prediction.
@@ -223,7 +223,7 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class BatchPredictOwnerParams:
     """
     Parameters for batch owner-centric draft pick scoring.

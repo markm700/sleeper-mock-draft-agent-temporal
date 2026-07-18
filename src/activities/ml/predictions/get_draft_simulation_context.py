@@ -6,7 +6,7 @@ picks, and draft order from the league's most recent draft configuration.
 """
 
 from collections import defaultdict
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from temporalio import activity, workflow
@@ -16,13 +16,7 @@ with workflow.unsafe.imports_passed_through():
     from schema.database_models import Draft, DraftPick, Player, TeamOwner
 
 
-_POSITION_MAP: Dict[str, int] = {"QB": 0, "RB": 1, "WR": 2, "TE": 3, "K": 4, "DEF": 5}
-_STATUS_MAP: Dict[str, float] = {
-    "Active": 1.0, "Inactive": 0.0, "Reserve": 0.5, "PUP": 0.3, "Suspended": 0.2,
-}
-
-
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetDraftSimulationContextParams:
     """
     Parameters for fetching mock draft simulation context.

@@ -1,5 +1,6 @@
 httpx[standard]
 temporalio==1.21.1
+pydantic>=2.0
 pytest
 pytest-asyncio
 

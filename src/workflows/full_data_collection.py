@@ -1,5 +1,5 @@
 from datetime import timedelta
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, Optional
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -32,7 +32,7 @@ def _safe_slug(text: str | None) -> str:
     slug = "".join(cleaned).strip("_")
     return slug or "value"
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class FullDataCollectionWorkflowParams:
     """
     Input parameters for the full data collection workflow.

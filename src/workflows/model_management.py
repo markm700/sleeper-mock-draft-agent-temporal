@@ -1,6 +1,6 @@
 """Model management workflow for building and inspecting team owner draft models."""
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict
 
@@ -27,7 +27,7 @@ with workflow.unsafe.imports_passed_through():
 VALID_ACTIONS = ("build", "rebuild", "status", "list", "delete")
 
     
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class ModelManagementWorkflowParams:
     """
     Input parameters for ModelManagementWorkflow.

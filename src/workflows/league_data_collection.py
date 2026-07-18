@@ -1,5 +1,5 @@
 from datetime import timedelta
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -8,7 +8,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.league.get_data import get_league_data, GetLeagueDataParams
     from workflows.draft_data_collection import DraftDataCollectionWorkflow, DraftDataCollectionWorkflowParams
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class LeagueDataCollectionWorkflowParams:
     """
     Input parameters for the league data collection workflow.

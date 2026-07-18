@@ -62,7 +62,7 @@ When working with API response models:
 
 ### Core Patterns
 
-- Use `@dataclass` decorator
+- Use `@dataclass` decorator with frozen=True and kw_only=True
 - Naming pattern: `{Resource}Response` (e.g., `UserResponse`, `LeagueResponse`)
 - Required fields first, optional fields last with `= None`
 - Use `Optional[T]` for nullable fields
@@ -72,10 +72,10 @@ When working with API response models:
 ### Example Structure
 
 ```python
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Optional, Dict, List, Any
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class LeagueResponse:
     """Sleeper API league response"""
     league_id: str

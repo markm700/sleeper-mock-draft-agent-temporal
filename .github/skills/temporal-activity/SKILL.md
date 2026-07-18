@@ -16,14 +16,14 @@ Choose the appropriate pattern based on the activity's purpose:
 For Sleeper API calls using httpx AsyncClient.
 
 ```python
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetLeagueDraftsParams:
     """Parameters for fetching all drafts for a league."""
     league_id: str
@@ -43,7 +43,7 @@ async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
 ```
 
 **Key points for Sleeper API activities**:
-- Use `@dataclass` for parameters with explicit type hints
+- Use `@dataclass` for parameters with explicit type hints, frozen=True, and kw_only=True
 - Use `get_sleeper_client_manager()` singleton for httpx AsyncClient
 - All Sleeper API methods are already async (NO need for asyncio.to_thread)
 - Use `print()` for logging (simpler than activity.logger)
@@ -55,7 +55,9 @@ async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
 Activities can include business logic like filtering:
 
 ```python
-@dataclass
+from pydantic.dataclasses import dataclass
+
+@dataclass(frozen=True, kw_only=True)
 class GetTradedDraftPicksParams:
     """Parameters for fetching traded picks for a league."""
     league_id: str
@@ -87,10 +89,11 @@ async def get_traded_draft_picks(input: GetTradedDraftPicksParams) -> Dict[str, 
 For database CRUD operations using SQLAlchemy ORM.
 
 ```python
+from pydantic.dataclasses import dataclass
 from temporalio import activity
 from typing import Dict, Any
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class StoreLeagueParams:
     """Parameters for storing league data."""
     league_data: Dict[str, Any]
@@ -125,10 +128,11 @@ async def store_league(input: StoreLeagueParams) -> bool:
 For machine learning operations, analysis, and computations.
 
 ```python
+from pydantic.dataclasses import dataclass
 from temporalio import activity
 from typing import Dict, Any
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class CalculateADPParams:
     """Parameters for ADP calculation."""
     picks: list[Dict[str, Any]]
@@ -175,7 +179,7 @@ All activities must:
 - ✅ Use `@activity.defn(name="...")` decorator with explicit name
 - ✅ Be `async def` functions
 - ✅ Use `print()` for logging (simpler than activity.logger)
-- ✅ Use `@dataclass` for parameters
+- ✅ Use `@dataclass` from pydantic.dataclasses for parameters
 - ✅ Include try/except with error logging before raising
 - ✅ Have type hints for parameters and return values
 - ✅ Have descriptive docstrings
@@ -212,7 +216,7 @@ Import activities using relative imports in workflows:
 ```python
 from temporalio import workflow
 from datetime import timedelta
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 
 with workflow.unsafe.imports_passed_through():
     from activities.draft.get_drafts import GetLeagueDraftsParams

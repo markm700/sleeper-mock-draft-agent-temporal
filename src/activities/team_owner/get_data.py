@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import activity, workflow
 
@@ -8,7 +8,7 @@ with workflow.unsafe.imports_passed_through():
     from schema.database_models import User
     from schema.constants import TEAM_OWNER_FUN_FACT_MAP, get_random_personality_trait
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetTeamOwnerDataParams:
     """
     Parameters for fetching data about a team owner.

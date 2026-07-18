@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Optional, Dict, Any
 from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetLeagueRosterParams:
     """
     Parameters for fetching league rosters, optionally filtered by owner.
