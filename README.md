@@ -97,14 +97,16 @@ This will start:
 - **Data Collection Worker Service**
 - **ML Worker Service**
 
-4. (Optional) Install dependencies for local development:
+4. Make the `run_api.sh` script executable for running commands, workflows, and simulations:
 ```bash
-poetry install
+chmod +x ./scripts/run_api.sh
 ```
 
-5. (Optional) Run database migrations:
+4. (Optional) Alias the folder location for the executable script for easier access:
 ```bash
-poetry run alembic upgrade head
+alias mockdraftagent="./scripts/run_api.sh"
+# Note: The script `run_api.sh` is the main entry point for running commands, workflows, and simulations. 
+# 'mockdraftagent' is the default but can be customized to your preference.
 ```
 
 ### Running the Application
