@@ -8,7 +8,6 @@ Database: PostgreSQL 13+
 ORM: SQLAlchemy 2.0+
 """
 
-from pydantic.dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -29,7 +28,7 @@ from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
-@dataclass(frozen=True, kw_only=True) # no FKs
+# no FKs
 class User(Base):
     """
     Represents a Sleeper user (team owner).
@@ -93,7 +92,6 @@ class User(Base):
     def __repr__(self) -> str:
         return f"<User(user_id={self.user_id}, username={self.username})>"
 
-@dataclass(frozen=True, kw_only=True)
 class League(Base):
     """
     Represents a Sleeper fantasy football league.
@@ -199,7 +197,6 @@ class League(Base):
     def __repr__(self) -> str:
         return f"<League(league_id={self.league_id}, name={self.name}, season={self.season})>"
 
-@dataclass(frozen=True, kw_only=True)
 class TeamOwner(Base):
     """
     Junction table representing a user/team owner's participation in a league.
@@ -271,7 +268,6 @@ class TeamOwner(Base):
     def __repr__(self) -> str:
         return f"<TeamOwner(league_id={self.league_id}, user_id={self.user_id})>"
 
-@dataclass(frozen=True, kw_only=True)
 class Roster(Base):
     """
     Represents a team roster in a league.
@@ -364,7 +360,6 @@ class Roster(Base):
     def __repr__(self) -> str:
         return f"<Roster(league_id={self.league_id}, roster_id={self.roster_id}, owner_id={self.owner_id})>"
 
-@dataclass(frozen=True, kw_only=True)
 class Draft(Base):
     """
     Represents a draft event in a league.
@@ -440,7 +435,6 @@ class Draft(Base):
     def __repr__(self) -> str:
         return f"<Draft(draft_id={self.draft_id}, league_id={self.league_id}, status={self.status})>"
 
-@dataclass(frozen=True, kw_only=True)
 class DraftPick(Base):
     """
     Represents an individual pick in a draft.
@@ -524,7 +518,6 @@ class DraftPick(Base):
     def __repr__(self) -> str:
         return f"<DraftPick(draft_id={self.draft_id}, pick_no={self.pick_no}, player_id={self.player_id})>"
 
-@dataclass(frozen=True, kw_only=True)
 class TradedDraftPick(Base):
     """
     Represents a traded draft pick.
@@ -588,7 +581,7 @@ class TradedDraftPick(Base):
     def __repr__(self) -> str:
         return f"<TradedDraftPick(league_id={self.league_id}, season={self.season}, round={self.round}, owner_id={self.owner_id})>"
 
-@dataclass(frozen=True, kw_only=True) # no FKs
+# no FKs
 class Player(Base):
     """
     Represents an NFL player from the Sleeper player database.

@@ -1,3 +1,4 @@
+from asyncio import gather
 from datetime import timedelta
 from pydantic.dataclasses import dataclass
 from typing import Dict, Any
@@ -57,26 +58,45 @@ class DraftDataCollectionWorkflow:
             activity_id=f"activity-get_league_drafts-{params.league_id}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(f"Get League Drafts Activity result: {len(draft_data['league_drafts'])} drafts for league {params.league_id}")
+        workflow.logger.info(f"Get League Drafts Activity result: {len(draft_data['league_drafts'])} drafts for league {params.league_id}")
         workflow_activities.append({
             "activity": "get_league_drafts",
             "draft_data": draft_data
         })
 
-        # Get Draft Picks Data Activity — iterate ALL drafts
-        total_picks_collected = 0
-        for draft in draft_data["league_drafts"]:
-            draft_id = draft["draft_id"]
-            draft_picks = await workflow.execute_activity(
+        # 1 draft-picks activity and traded-picks activity per draft (parameter dependent)
+        # Execute in parallel
+        draft_pick_handler = [
+            workflow.execute_activity(
                 get_specific_draft_picks,
-                GetSpecificDraftPicksParams(draft_id=draft_id),
+                GetSpecificDraftPicksParams(draft_id=draft["draft_id"]),
                 start_to_close_timeout=timedelta(seconds=30),
-                activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft_id}-{wf_hex}",
+                activity_id=f"activity-get_specific_draft_picks-{params.league_id}-{draft['draft_id']}-{wf_hex}",
+                retry_policy=activity_retry_policy,
+            ) for draft in draft_data["league_drafts"]
+        ]
+
+        # Await all draft-picks activities and traded-picks activity together.
+        *draft_pick_results, draft_pick_trades = await gather(
+            *draft_pick_handler, 
+            workflow.execute_activity(
+                get_traded_draft_picks,
+                GetTradedDraftPicksParams(league_id=params.league_id, season=params.season),
+                start_to_close_timeout=timedelta(seconds=30),
+                activity_id=f"activity-get_traded_draft_picks-{params.league_id}-{params.season}-{wf_hex}",
                 retry_policy=activity_retry_policy,
             )
+        )
+        workflow.logger.info(f"Successfully collected draft picks for all drafts in the league: {len(draft_pick_results)} drafts processed")
+        workflow.logger.info(f"Draft Pick Activity results: {[len(result.get('draft_picks', [])) for result in draft_pick_results]} picks per draft")
+        
+        # Draft Metric Data
+        total_picks_collected = 0
+        for draft_picks in draft_pick_results:
+            draft_id = draft_picks.get("draft_id")
             num_picks = len(draft_picks.get("draft_picks", []))
             total_picks_collected += num_picks
-            print(f"Specific Draft Picks Activity result: {num_picks} picks for draft {draft_id}")
+            workflow.logger.info(f"Specific Draft Picks Activity result: {num_picks} picks for draft {draft_id}")
             workflow_activities.append({
                 "activity": "get_specific_draft_picks",
                 "draft_id": draft_id,
@@ -84,17 +104,10 @@ class DraftDataCollectionWorkflow:
                 "draft_picks": draft_picks
             })
 
-        print(f"Total draft picks collected: {total_picks_collected} across {len(draft_data['league_drafts'])} drafts")
+        workflow.logger.info(f"Total draft picks collected: {total_picks_collected} across {len(draft_data['league_drafts'])} drafts")
 
-        # Get Draft Pick Trade Data Activity
-        draft_pick_trades = await workflow.execute_activity(
-            get_traded_draft_picks,
-            GetTradedDraftPicksParams(league_id=params.league_id, season=params.season),
-            start_to_close_timeout=timedelta(seconds=30),
-            activity_id=f"activity-get_traded_draft_picks-{params.league_id}-{params.season}-{wf_hex}",
-            retry_policy=activity_retry_policy,
-        )
-        print(f"Traded Draft Picks Activity result: {len(draft_pick_trades.get('traded_draft_picks', []))} traded picks for league {params.league_id} in season {params.season}")
+        # Process the concurrently-collected traded draft picks
+        workflow.logger.info(f"Traded Draft Picks Activity result: {len(draft_pick_trades.get('traded_draft_picks', []))} traded picks for league {params.league_id} in season {params.season}")
         workflow_activities.append({
             "activity": "get_traded_draft_picks",
             "total_traded_picks": len(draft_pick_trades.get("traded_draft_picks", [])),
