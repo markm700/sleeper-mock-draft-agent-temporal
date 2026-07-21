@@ -83,7 +83,7 @@ class ModelManagementWorkflow:
             Dict[str, Any]: {"activity_data": [{"activity": str, "result": {...}}, ...]}
         """
         wf_hex = workflow.info().run_id[-4:]
-        print(
+        workflow.logger.info(
             f"ModelManagementWorkflow starting — action={params.action} "
             f"model={params.model_name}"
         )
@@ -107,7 +107,7 @@ class ModelManagementWorkflow:
                 activity_id=f"activity-get_model_status-{params.model_name}-{wf_hex}",
                 retry_policy=activity_retry_policy,
             )
-            print(
+            workflow.logger.info(
                 f"Model status: exists_on_disk={status_result['exists_on_disk']}, "
                 f"cached_in_memory={status_result['cached_in_memory']}"
             )
@@ -132,7 +132,7 @@ class ModelManagementWorkflow:
             )
             created = build_result.get("created", False)
             model_type = build_result.get("model_type", "?")
-            print(
+            workflow.logger.info(
                 f"Model '{params.model_name}': created={created}, "
                 f"model_type={model_type}"
             )
@@ -146,7 +146,7 @@ class ModelManagementWorkflow:
                 activity_id=f"activity-list_models-{wf_hex}",
                 retry_policy=activity_retry_policy,
             )
-            print(f"Listed {list_result['num_models']} models on disk")
+            workflow.logger.info(f"Listed {list_result['num_models']} models on disk")
             workflow_activities.append({"activity": "list_models", "result": list_result})
 
         elif action == "delete":
@@ -158,7 +158,7 @@ class ModelManagementWorkflow:
                 activity_id=f"activity-delete_model-{params.model_name}-{wf_hex}",
                 retry_policy=activity_retry_policy,
             )
-            print(
+            workflow.logger.info(
                 f"Model '{params.model_name}': deleted_from_disk="
                 f"{delete_result['deleted_from_disk']}, "
                 f"evicted_from_cache={delete_result['evicted_from_cache']}"
@@ -171,5 +171,5 @@ class ModelManagementWorkflow:
                 "Valid actions: 'build', 'rebuild', 'status', 'list', 'delete'."
             )
 
-        print(f"ModelManagementWorkflow complete — action={params.action}")
+        workflow.logger.info(f"ModelManagementWorkflow complete — action={params.action}")
         return {"activity_data": workflow_activities}

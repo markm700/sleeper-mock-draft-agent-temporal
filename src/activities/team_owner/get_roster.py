@@ -47,5 +47,5 @@ async def get_team_owner_rosters(input: GetLeagueRosterParams) -> Dict[str, Any]
         return {"rosters": league_rosters }
        
     except Exception as e:
-        print(f"Failed to fetch team owner rosters for league {input.league_id}: {str(e)}")
+        activity.logger.error(f"Failed to fetch team owner rosters for league {input.league_id}: {str(e)}")
         raise

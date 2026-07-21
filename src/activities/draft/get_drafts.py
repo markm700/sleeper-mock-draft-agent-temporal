@@ -40,7 +40,7 @@ async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
         for draft in league_drafts:
             draft_id = draft.get("draft_id")
             if not draft_id:
-                print(f"Skipping draft with missing draft_id")
+                activity.logger.info(f"Skipping draft with missing draft_id")
                 continue
                 
             draft_records.append({
@@ -58,7 +58,7 @@ async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
                     "created": draft.get("created"),
                 }
             )
-            print(f"Successfully added draft {draft_id} to be batch upserted into database")
+            activity.logger.info(f"Successfully added draft {draft_id} to be batch upserted into database")
         postgres.upsert_records(
             model=Draft,
             records=draft_records,
@@ -76,9 +76,9 @@ async def get_league_drafts(input: GetLeagueDraftsParams) -> Dict[str, Any]:
                 "created"
             ]
         )
-        print(f"Successfully batch upserted {len(draft_records)} drafts for league {input.league_id} to database")
+        activity.logger.info(f"Successfully batch upserted {len(draft_records)} drafts for league {input.league_id} to database")
 
         return { "league_drafts": league_drafts }
     except Exception as e:
-        print(f"Failed to fetch league drafts for {input.league_id}: {str(e)}")
+        activity.logger.error(f"Failed to fetch league drafts for {input.league_id}: {str(e)}")
         raise

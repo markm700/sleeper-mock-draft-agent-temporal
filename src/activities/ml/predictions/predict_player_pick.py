@@ -85,7 +85,7 @@ async def get_player_features_from_db(input: GetPlayerFeaturesParams) -> Dict[st
                 }
                 player_features.append(feature_dict)
 
-        print(f"Fetched features for {len(player_features)} players from PostgreSQL")
+        activity.logger.info(f"Fetched features for {len(player_features)} players from PostgreSQL")
         return {
             "player_features": player_features,
             "num_players": len(player_features),
@@ -93,7 +93,7 @@ async def get_player_features_from_db(input: GetPlayerFeaturesParams) -> Dict[st
         }
 
     except Exception as e:
-        print(f"Failed to fetch player features: {str(e)}")
+        activity.logger.error(f"Failed to fetch player features: {str(e)}")
         raise
 
 
@@ -157,9 +157,9 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
             pg = get_postgres_client_manager()
             with pg.session_scope() as session:
                 resolved_trait = get_personality_trait(session, input.user_id)
-            print(f"Resolved personality traits for user '{input.user_id}' from DB")
+            activity.logger.info(f"Resolved personality traits for user '{input.user_id}' from DB")
         except Exception as e:
-            print(f"Failed to resolve personality traits for user '{input.user_id}': {str(e)}")
+            activity.logger.error(f"Failed to resolve personality traits for user '{input.user_id}': {str(e)}")
             resolved_trait = get_random_personality_trait()
 
         # Build feature matrix
@@ -189,7 +189,7 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
                 X_scored, personality_col_start, False
             ) # False indicated NO random personality scaling (constant perosnality influence)
 
-        print(f"Scoring {n} candidate players for owner model '{input.model_name}'")
+        activity.logger.info(f"Scoring {n} candidate players for owner model '{input.model_name}'")
 
         # Softmax across candidates
         exp_scores = np.exp(pick_scores_np - np.max(pick_scores_np))
@@ -199,7 +199,7 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
             pick_probs_np, pick_scores_np, input.player_features
         )
 
-        print(
+        activity.logger.info(
             f"Owner prediction: top={results['top_prediction']['player_id']} "
             f"p={results['top_prediction']['confidence']:.3f} "
             f"personality_influence={influence:.2f}"
@@ -214,7 +214,7 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
         }
 
     except Exception as e:
-        print(f"Owner draft pick prediction failed: {str(e)}")
+        activity.logger.error(f"Owner draft pick prediction failed: {str(e)}")
         raise
 
 
@@ -276,7 +276,7 @@ async def batch_predict_owner(input: BatchPredictOwnerParams) -> Dict[str, Any]:
             with pg.session_scope() as session:
                 resolved_trait = get_personality_trait(session, input.user_id)
         except Exception as e:
-            print(f"Failed to resolve personality trait for user '{input.user_id}': {str(e)}")
+            activity.logger.error(f"Failed to resolve personality trait for user '{input.user_id}': {str(e)}")
             resolved_trait = get_random_personality_trait()
 
         context_array = _prepare_draft_context_features(input.draft_context)
@@ -309,7 +309,7 @@ async def batch_predict_owner(input: BatchPredictOwnerParams) -> Dict[str, Any]:
             confidences, affinities, input.player_features
         )
 
-        print(
+        activity.logger.info(
             f"batch_predict_owner complete: top={results['top_prediction']['player_id']} "
             f"p={results['top_prediction']['confidence']:.3f}"
         )
@@ -323,7 +323,7 @@ async def batch_predict_owner(input: BatchPredictOwnerParams) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        print(f"batch_predict_owner failed: {str(e)}")
+        activity.logger.error(f"batch_predict_owner failed: {str(e)}")
         raise
 
 

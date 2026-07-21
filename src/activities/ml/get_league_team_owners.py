@@ -57,7 +57,7 @@ async def get_league_team_owners(input: GetLeagueTeamOwnersParams) -> Dict[str, 
             owners = query.all()
             owner_user_ids: List[str] = [o.user_id for o in owners]
 
-        print(
+        activity.logger.info(
             f"Found {len(owner_user_ids)} team owners in league {input.league_id}"
         )
         return {
@@ -67,5 +67,5 @@ async def get_league_team_owners(input: GetLeagueTeamOwnersParams) -> Dict[str, 
         }
 
     except Exception as e:
-        print(f"Failed to fetch team owners for league {input.league_id}: {str(e)}")
+        activity.logger.error(f"Failed to fetch team owners for league {input.league_id}: {str(e)}")
         raise

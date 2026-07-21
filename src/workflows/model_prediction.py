@@ -76,7 +76,7 @@ class ModelPredictionWorkflow:
             }
         """
         wf_hex = workflow.info().run_id[-4:]
-        print(
+        workflow.logger.info(
             f"ModelPredictionWorkflow starting — model={params.model_name} "
             f"user={params.user_id} candidates={len(params.player_ids)}"
         )
@@ -102,7 +102,7 @@ class ModelPredictionWorkflow:
             activity_id=f"activity-get_player_features-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(
+        workflow.logger.info(
             f"Fetched features for {features_result['num_players']} players "
             f"(missing={features_result['missing_players']})"
         )
@@ -116,7 +116,7 @@ class ModelPredictionWorkflow:
 
         player_features = features_result["player_features"]
         if not player_features:
-            print("No player features found — cannot predict.")
+            workflow.logger.info("No player features found — cannot predict.")
             return {
                 "predictions": {},
                 "model_name": params.model_name,
@@ -160,7 +160,7 @@ class ModelPredictionWorkflow:
                 retry_policy=activity_retry_policy,
             )
 
-        print(
+        workflow.logger.info(
             f"Prediction complete: model={params.model_name} "
             f"candidates={prediction_result['num_candidates']}"
         )
@@ -173,7 +173,7 @@ class ModelPredictionWorkflow:
             },
         })
 
-        print(f"ModelPredictionWorkflow complete — model={params.model_name}")
+        workflow.logger.info(f"ModelPredictionWorkflow complete — model={params.model_name}")
         return {
             "predictions": prediction_result["predictions"],
             "top_3_predictions": prediction_result.get("top_3_predictions", []),

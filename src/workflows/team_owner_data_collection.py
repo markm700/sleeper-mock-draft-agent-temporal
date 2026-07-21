@@ -57,7 +57,7 @@ class TeamOwnerDataCollectionWorkflow:
             activity_id=f"activity-get_team_owner_data-{params.username}-{params.league_name}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(f"Get Team Owner Data Activity result: {team_owner_data['user_id'] if team_owner_data else 'No Team Owner found'}")
+        workflow.logger.info(f"Get Team Owner Data Activity result: {team_owner_data['user_id'] if team_owner_data else 'No Team Owner found'}")
         workflow_activities.append({
             "activity": "get_team_owner_data",
             "result": team_owner_data

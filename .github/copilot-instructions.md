@@ -56,7 +56,7 @@ Common development tasks have detailed guides in `.github/skills/`:
 ### Package Structure
 - ✅ All packages have `__init__.py` with **docstrings only** (no imports, no `__all__`)
 - ✅ Top-level imports resolved via `PYTHONPATH=src`: `from activities...`, `from workflows...`, `from schema...`, `from testing...` (no `src.` prefix anywhere — workers, tests, and modules all use this form)
-- ✅ Docker: `PYTHONPATH=/app/src` so the `src` contents are importable as top-level packages
+- ✅ Docker: build `context: ./src` copies the `src` contents into `/app`, and containers run `python -m workers.<name>` from `/app`, so `activities`, `workflows`, `observability`, etc. resolve as top-level packages (locally, use `PYTHONPATH=src`)
 - ❌ No circular dependencies (workflows → activities, never reverse)
 
 ### ML Pipeline

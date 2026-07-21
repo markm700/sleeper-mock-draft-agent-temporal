@@ -137,7 +137,7 @@ class ModelTrainingWorkflow:
         model_name = params.model_name or _default_model_name(
             params.user_id, params.league_id
         )
-        print(
+        workflow.logger.info(
             f"ModelTrainingWorkflow starting — user={params.user_id} "
             f"league={params.league_id} model={model_name} season={params.season}"
         )
@@ -155,7 +155,7 @@ class ModelTrainingWorkflow:
         # ------------------------------------------------------------------
         if params.precomputed_adp_data is not None:
             adp_result = params.precomputed_adp_data
-            print(
+            workflow.logger.info(
                 f"Using precomputed ADP data: {adp_result['num_players']} players"
             )
             workflow_activities.append({"activity": "calculate_adp_from_picks", "result": {
@@ -180,7 +180,7 @@ class ModelTrainingWorkflow:
                 ),
                 retry_policy=activity_retry_policy,
             )
-            print(
+            workflow.logger.info(
                 f"ADP calculated: {adp_result['num_players']} players across "
                 f"{adp_result['num_drafts']} drafts ({adp_result['num_picks']} picks)"
             )
@@ -212,7 +212,7 @@ class ModelTrainingWorkflow:
         )
 
         num_samples = training_data["num_samples"]
-        print(
+        workflow.logger.info(
             f"Training data prepared: {num_samples} samples "
             f"for user {params.user_id}"
         )
@@ -221,7 +221,7 @@ class ModelTrainingWorkflow:
         }})
 
         if num_samples == 0:
-            print(
+            workflow.logger.info(
                 f"Skipping training — no usable samples for user {params.user_id}. "
                 "Ensure draft data has been collected first."
             )
@@ -251,7 +251,7 @@ class ModelTrainingWorkflow:
             ),
             retry_policy=activity_retry_policy,
         )
-        print(
+        workflow.logger.info(
             f"Model '{model_name}': created={build_result.get('created')}, "
             f"model_type={build_result.get('model_type')}"
         )
@@ -284,14 +284,14 @@ class ModelTrainingWorkflow:
             ),
             retry_policy=activity_retry_policy,
         )
-        print(
+        workflow.logger.info(
             f"Training complete: {train_result['num_boost_round']} rounds, "
             f"samples={train_result['num_samples']}, "
             f"query_groups={train_result['num_query_groups']}"
         )
         workflow_activities.append({"activity": "train_team_owner_model", "result": train_result})
 
-        print(f"ModelTrainingWorkflow complete — model saved to {train_result['model_path']}")
+        workflow.logger.info(f"ModelTrainingWorkflow complete — model saved to {train_result['model_path']}")
         return {
             "model_name": model_name,
             "model_path": train_result["model_path"],

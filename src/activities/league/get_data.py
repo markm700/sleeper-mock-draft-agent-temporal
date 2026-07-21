@@ -36,7 +36,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
 
     try:
         league_data = await sleeper.get_league(input.league_id)
-        print(f"League {input.league_id} League Id =  {input.league_id}")
+        activity.logger.info(f"League {input.league_id} League Id =  {input.league_id}")
         # DB data - League
         postgres.upsert_record(
             model=League,
@@ -60,10 +60,10 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
                 "loser_bracket_overrides_id": league_data.get("loser_bracket_overrides_id"),
             }
         )
-        print(f"Successfully upserted league {input.league_id} to database")
+        activity.logger.info(f"Successfully upserted league {input.league_id} to database")
 
         league_users = await sleeper.get_league_users(league_id=input.league_id)
-        print(f"League {input.league_id} League Users =  {len(league_users)}")
+        activity.logger.info(f"League {input.league_id} League Users =  {len(league_users)}")
         # DB data - League Users/Team Owners
         user_records = []
         owner_records = []
@@ -72,7 +72,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
             username = user.get("username") or user.get("display_name")
             # Skip users without required fields
             if not user_id:
-                print(f"Skipping user with missing required fields: user_id={user_id}")
+                activity.logger.info(f"Skipping user with missing required fields: user_id={user_id}")
                 continue
             
             # Add personality trait if available, else random
@@ -88,7 +88,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
                     "personality_trait": personality_trait,
                 }
             )
-            print(f"Successfully added user {user_id} for league {input.league_id} to be batch upserted into database")
+            activity.logger.info(f"Successfully added user {user_id} for league {input.league_id} to be batch upserted into database")
             owner_records.append({
                     "league_id": input.league_id,
                     "user_id": user_id,
@@ -98,24 +98,24 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
                     "personality_trait": get_random_personality_trait(),
                 }
             )
-            print(f"Queued team owner {user_id} for league {input.league_id} for batch upsert")
+            activity.logger.info(f"Queued team owner {user_id} for league {input.league_id} for batch upsert")
         postgres.upsert_records(
             model=User,
             records=user_records,
             conflict_columns=["user_id"],
             update_columns=["username", "display_name", "real_name", "is_bot"]
         )
-        print(f"Successfully batch upserted {len(user_records)} users for league {input.league_id} to database")
+        activity.logger.info(f"Successfully batch upserted {len(user_records)} users for league {input.league_id} to database")
         postgres.upsert_records(
             model=TeamOwner,
             records=owner_records,
             conflict_columns=["league_id", "user_id"],
             update_columns=["display_name", "is_owner", "is_bot"]
         )
-        print(f"Successfully batch upserted {len(owner_records)} team owners for league {input.league_id} to database")
+        activity.logger.info(f"Successfully batch upserted {len(owner_records)} team owners for league {input.league_id} to database")
 
         league_rosters = await sleeper.get_league_rosters(league_id=input.league_id)
-        print(f"League {input.league_id} League Rosters =  {len(league_rosters)}")
+        activity.logger.info(f"League {input.league_id} League Rosters =  {len(league_rosters)}")
         # DB data - League Rosters
         roster_records = []
         for roster in league_rosters:
@@ -132,7 +132,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
                 "co_owners": roster.get("co_owners"),
                 "api_metadata": roster.get("metadata"),
             })
-            print(f"Successfully added roster {roster.get('roster_id')} to be batch upserted into database")
+            activity.logger.info(f"Successfully added roster {roster.get('roster_id')} to be batch upserted into database")
         postgres.upsert_records(
             model=Roster,
             records=roster_records,
@@ -142,7 +142,7 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
                 "roster_settings", "reserve", "taxi", "co_owners", "api_metadata",
             ]
         )
-        print(f"Successfully batch upserted {len(roster_records)} rosters for league {input.league_id} to database")
+        activity.logger.info(f"Successfully batch upserted {len(roster_records)} rosters for league {input.league_id} to database")
 
         return {
             "league_data": league_data,
@@ -150,5 +150,5 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
             "league_rosters": league_rosters
         }
     except Exception as e:
-            print(f"Failed to fetch league data for {input.league_id}: {str(e)}")
+            activity.logger.error(f"Failed to fetch league data for {input.league_id}: {str(e)}")
             raise

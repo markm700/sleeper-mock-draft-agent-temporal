@@ -6,11 +6,14 @@ Replaces the previous PyTorch-based manager with a lightweight scikit-learn /
 LightGBM compatible implementation.
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import joblib
+
+logger = logging.getLogger(__name__)
 
 
 class MLModelManager:
@@ -26,7 +29,7 @@ class MLModelManager:
     def __new__(cls) -> "MLModelManager":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            print("MLModelManager initialised (scikit-learn / LightGBM)")
+            logger.info("MLModelManager initialised (scikit-learn / LightGBM)")
         return cls._instance
 
     def load_model(self, model_name: str, model_path: Optional[str] = None) -> Any:
@@ -41,7 +44,7 @@ class MLModelManager:
             The deserialised model object.
         """
         if model_name in self._models:
-            print(f"Using cached model: {model_name}")
+            logger.info(f"Using cached model: {model_name}")
             return self._models[model_name]
 
         if model_path is None:
@@ -51,10 +54,10 @@ class MLModelManager:
         if not Path(model_path).exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
-        print(f"Loading model from: {model_path}")
+        logger.info(f"Loading model from: {model_path}")
         model = joblib.load(model_path)
         self._models[model_name] = model
-        print(f"Successfully loaded and cached model: {model_name}")
+        logger.info(f"Successfully loaded and cached model: {model_name}")
         return model
 
     def save_model(
@@ -82,11 +85,11 @@ class MLModelManager:
 
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(model, save_path)
-        print(f"Saved model to: {save_path}")
+        logger.info(f"Saved model to: {save_path}")
 
         if cache:
             self._models[model_name] = model
-            print(f"Cached model: {model_name}")
+            logger.info(f"Cached model: {model_name}")
 
         return save_path
 
@@ -94,7 +97,7 @@ class MLModelManager:
         """Remove a model from the in-memory cache."""
         if model_name in self._models:
             del self._models[model_name]
-            print(f"Unloaded model: {model_name}")
+            logger.info(f"Unloaded model: {model_name}")
 
     def get_model_info(self, model_name: str) -> Dict[str, Any]:
         """Return information about a cached model."""
@@ -110,10 +113,10 @@ class MLModelManager:
     def close(self) -> None:
         """Clear all cached models and reset the singleton."""
         model_names = list(self._models.keys())
-        print(f"MLModelManager shutdown: unloading {len(model_names)} cached model(s)...")
+        logger.info(f"MLModelManager shutdown: unloading {len(model_names)} cached model(s)...")
         self._models.clear()
         MLModelManager._instance = None
-        print("MLModelManager closed")
+        logger.info("MLModelManager closed")
 
 
 def get_ml_model_manager() -> MLModelManager:

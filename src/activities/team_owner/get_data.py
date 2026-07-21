@@ -43,7 +43,7 @@ async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
         if not user_id:
             raise ValueError(f"No user_id found for username: {input.username}")
 
-        print(f"Team Owner {input.username} User Id = {user_id}")
+        activity.logger.info(f"Team Owner {input.username} User Id = {user_id}")
 
         user_leagues = await sleeper.get_user_leagues(user_id=user_id, league_name=input.league_name)
 
@@ -68,7 +68,7 @@ async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
             },
             update_columns=["username", "display_name", "real_name", "is_bot"],
         )
-        print(f"Successfully upserted user {input.username} to database")
+        activity.logger.info(f"Successfully upserted user {input.username} to database")
 
         return {
             "user_id": user_id,
@@ -76,5 +76,5 @@ async def get_team_owner_data(input: GetTeamOwnerDataParams) -> Dict[str, Any]:
             "user_leagues": user_leagues
         }
     except Exception as e:
-        print(f"Failed to fetch team owner data for {input.username}: {str(e)}")
+        activity.logger.error(f"Failed to fetch team owner data for {input.username}: {str(e)}")
         raise

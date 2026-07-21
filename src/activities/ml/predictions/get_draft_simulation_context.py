@@ -197,7 +197,7 @@ async def get_draft_simulation_context(
                 else:
                     owner_profiles[user_id] = _default_owner_profile()
 
-        print(
+        activity.logger.info(
             f"Draft simulation context: {num_teams} teams, {total_picks} picks, "
             f"{len(candidate_players)} candidates, {len(owner_profiles)} profiles"
         )
@@ -212,7 +212,7 @@ async def get_draft_simulation_context(
         }
 
     except Exception as e:
-        print(f"Failed to get draft simulation context: {str(e)}")
+        activity.logger.error(f"Failed to get draft simulation context: {str(e)}")
         raise
 
 

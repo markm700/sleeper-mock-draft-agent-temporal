@@ -80,7 +80,7 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
     num_samples = len(samples)
 
     if num_samples == 0:
-        print(f"No usable training samples for '{input.model_name}'; skipping training.")
+        activity.logger.info(f"No usable training samples for '{input.model_name}'; skipping training.")
         return {
             "model_name": input.model_name,
             "model_path": model_path,
@@ -130,7 +130,7 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
         X_train = np.vstack(all_features)
         y_train = np.array(all_labels, dtype=np.float32)
 
-        print(
+        activity.logger.info(
             f"Training LightGBM ranker for '{input.model_name}': "
             f"{X_train.shape[0]} rows, {len(group_sizes)} query groups"
         )
@@ -168,7 +168,7 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
         model.booster = booster
 
         saved_path = ml_manager.save_model(model, input.model_name, save_path=model_path)
-        print(f"Saved trained model '{input.model_name}' → {saved_path}")
+        activity.logger.info(f"Saved trained model '{input.model_name}' → {saved_path}")
 
         return {
             "model_name": input.model_name,
@@ -179,5 +179,5 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
         }
 
     except Exception as e:
-        print(f"Failed to train model '{input.model_name}': {str(e)}")
+        activity.logger.error(f"Failed to train model '{input.model_name}': {str(e)}")
         raise

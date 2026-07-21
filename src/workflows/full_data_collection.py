@@ -136,7 +136,7 @@ class FullDataCollectionWorkflow:
 
         # Use the most recent league_id as the primary
         league_id = all_league_ids[0]
-        print(
+        workflow.logger.info(
             f"Found {len(all_league_ids)} seasons for '{params.league_name}': "
             f"{all_league_ids}"
         )

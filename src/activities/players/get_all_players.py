@@ -20,14 +20,14 @@ async def get_all_player_data() -> Dict[str, Any]:
     try:
         # Sleeper API returns Dict[player_id, player_data]
         all_player_data = await sleeper.get_nfl_players()
-        print(f"Fetched data for {len(all_player_data)} NFL players from Sleeper API")
+        activity.logger.info(f"Fetched data for {len(all_player_data)} NFL players from Sleeper API")
         
         # Convert dict to list of records for batch upsert
         player_records: List[Dict[str, Any]] = []
         
         for player_id, player_data in all_player_data.items():
             if not player_id or not isinstance(player_data, dict):
-                print(f"Skipping invalid player entry: player_id={player_id}, full_name={player_data.get('full_name') if isinstance(player_data, dict) else 'N/A'}")
+                activity.logger.info(f"Skipping invalid player entry: player_id={player_id}, full_name={player_data.get('full_name') if isinstance(player_data, dict) else 'N/A'}")
                 continue
             player_record = {
                 "player_id": player_id,
@@ -77,9 +77,9 @@ async def get_all_player_data() -> Dict[str, Any]:
                 model=Player,
                 records=player_records
             )
-            print(f"Successfully batch upserted {upserted_count} players to database")
+            activity.logger.info(f"Successfully batch upserted {upserted_count} players to database")
         else:
-            print("No valid player records to upsert")
+            activity.logger.info("No valid player records to upsert")
             upserted_count = 0
         
         return {
@@ -87,5 +87,5 @@ async def get_all_player_data() -> Dict[str, Any]:
             "upserted_players": upserted_count
         }
     except Exception as e:
-        print(f"Failed to fetch and upsert player data: {str(e)}")
+        activity.logger.error(f"Failed to fetch and upsert player data: {str(e)}")
         raise
