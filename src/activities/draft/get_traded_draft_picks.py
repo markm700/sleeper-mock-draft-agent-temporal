@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import activity, workflow
 
@@ -7,7 +7,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.clients.postgres_client import get_postgres_client_manager
     from schema.database_models import TradedDraftPick
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetTradedDraftPicksParams:
     """
     Parameters for fetching traded picks for a league.
@@ -50,7 +50,7 @@ async def get_traded_draft_picks(input: GetTradedDraftPicksParams) -> Dict[str, 
             round_num = pick.get("round")
             
             if roster_id is None or round_num is None:
-                print(f"Skipping traded pick with missing required fields: roster_id={roster_id}, round={round_num}")
+                activity.logger.info(f"Skipping traded pick with missing required fields: roster_id={roster_id}, round={round_num}")
                 continue
             
             pick_records.append({
@@ -62,15 +62,15 @@ async def get_traded_draft_picks(input: GetTradedDraftPicksParams) -> Dict[str, 
                     "round": round_num,
                 }
             )
-            print(f"Successfully added traded draft pick (roster {roster_id}, round {round_num}) for {input.season} season to be batch upserted into database")
+            activity.logger.info(f"Successfully added traded draft pick (roster {roster_id}, round {round_num}) for {input.season} season to be batch upserted into database")
         postgres.upsert_records(
             model=TradedDraftPick,
             records=pick_records,
             conflict_columns=["league_id", "season", "round", "roster_id"],
         )
-        print(f"Successfully batch upserted {len(pick_records)} traded draft picks for league {input.league_id} to database")
+        activity.logger.info(f"Successfully batch upserted {len(pick_records)} traded draft picks for league {input.league_id} to database")
 
         return { "traded_draft_picks": traded_picks }
     except Exception as e:
-        print(f"Failed to fetch traded draft picks for {input.league_id}: {str(e)}")
+        activity.logger.error(f"Failed to fetch traded draft picks for {input.league_id}: {str(e)}")
         raise

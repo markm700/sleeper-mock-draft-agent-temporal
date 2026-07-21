@@ -6,7 +6,7 @@ a ModelTrainingWorkflow child workflow for each owner. This avoids redundant
 ADP computation and provides a single workflow to train all 10 (or N) models.
 """
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -22,7 +22,7 @@ with workflow.unsafe.imports_passed_through():
     from workflows.model_training import ModelTrainingWorkflow, ModelTrainingWorkflowParams
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class LeagueModelTrainingWorkflowParams:
     """
     Input parameters for LeagueModelTrainingWorkflow.
@@ -86,7 +86,7 @@ class LeagueModelTrainingWorkflow:
             }
         """
         wf_hex = workflow.info().run_id[-4:]
-        print(
+        workflow.logger.info(
             f"LeagueModelTrainingWorkflow starting — league={params.league_id} "
             f"season={params.season}"
         )
@@ -115,14 +115,14 @@ class LeagueModelTrainingWorkflow:
 
         owner_user_ids: List[str] = owners_result["owner_user_ids"]
         num_owners = len(owner_user_ids)
-        print(f"Found {num_owners} team owners in league {params.league_id}")
+        workflow.logger.info(f"Found {num_owners} team owners in league {params.league_id}")
         workflow_activities.append({
             "activity": "get_league_team_owners",
             "result": {"num_owners": num_owners},
         })
 
         if num_owners == 0:
-            print("No team owners found — exiting early.")
+            workflow.logger.info("No team owners found — exiting early.")
             return {
                 "league_id": params.league_id,
                 "num_owners": 0,
@@ -150,7 +150,7 @@ class LeagueModelTrainingWorkflow:
             ),
             retry_policy=activity_retry_policy,
         )
-        print(
+        workflow.logger.info(
             f"ADP calculated: {adp_result['num_players']} players across "
             f"{adp_result['num_drafts']} drafts ({adp_result['num_picks']} picks)"
         )
@@ -172,7 +172,7 @@ class LeagueModelTrainingWorkflow:
 
         for idx, user_id in enumerate(owner_user_ids):
             model_name = f"owner_{user_id}_{params.league_id}_v1"
-            print(
+            workflow.logger.info(
                 f"Training model {idx + 1}/{num_owners}: "
                 f"user={user_id} model={model_name}"
             )
@@ -220,13 +220,13 @@ class LeagueModelTrainingWorkflow:
                 "model_path": child_result.get("model_path", ""),
             })
 
-            print(
+            workflow.logger.info(
                 f"Owner {idx + 1}/{num_owners} done: "
                 f"user={user_id} skipped={skipped} "
                 f"samples={child_result.get('num_samples', 0)}"
             )
 
-        print(
+        workflow.logger.info(
             f"LeagueModelTrainingWorkflow complete — "
             f"trained={num_trained}, skipped={num_skipped}, total={num_owners}"
         )

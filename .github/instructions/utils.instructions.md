@@ -10,7 +10,7 @@ applyTo: "src/utils/**/*.py"
 
 ### Core Patterns
 
-- Use `@dataclass` for `Config` class
+- Use `@dataclass` from pydantic.dataclasses for `Config` class
 - Group fields with comments (Database, Temporal, Application, ML/Analysis)
 - Provide sensible defaults via `os.getenv()` second parameter
 - Load `.env` file with `load_dotenv()` at module level
@@ -22,13 +22,13 @@ applyTo: "src/utils/**/*.py"
 
 ```python
 import os
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class Config:
     """Application configuration"""
     
@@ -67,9 +67,9 @@ def get_config() -> Config:
 
 ### Current Practice
 
-- **In workflows**: Use `print()` for logging (workflow.logger is deprecated in newer Temporal versions)
-- **In activities**: Use `print()` for logging (simpler than activity.logger)
-- **In regular modules**: Use Python's standard `logging.getLogger(__name__)`
+- **In workflows**: Use `workflow.logger` — it is replay-aware and injects workflow context (`workflow.logger` is **NOT** deprecated)
+- **In activities**: Use `activity.logger` — it injects activity context
+- **In regular modules** (clients, helpers): Use Python's standard `logging.getLogger(__name__)`
 
 ### Future Implementation (`logging.py`)
 

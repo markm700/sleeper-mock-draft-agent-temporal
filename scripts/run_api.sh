@@ -389,8 +389,8 @@ case "$command" in
     model-delete)       cmd_model_delete "$@" ;;
     model-manage)       cmd_model_manage "$@" ;;
     predict)            cmd_predict "$@" ;;
-    simulate-draft)     cmd_simulate_draft "$@" ;;
-    pipeline)           cmd_pipeline "$@" ;;
+    simulate-draft|sim) cmd_simulate_draft "$@" ;;
+    pipeline|-p)        cmd_pipeline "$@" ;;
     help|--help|-h)     usage ;;
     *)
         err "Unknown command: ${command}"

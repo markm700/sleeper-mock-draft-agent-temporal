@@ -6,7 +6,7 @@ Output is structured to feed directly into get_player_features_from_db as adp_da
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 from temporalio import activity, workflow
 
@@ -15,7 +15,7 @@ with workflow.unsafe.imports_passed_through():
     from schema.database_models import DraftPick, Draft
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class CalculateADPFromPicksParams:
     """
     Parameters for calculating ADP from stored draft pick records.
@@ -69,7 +69,7 @@ async def calculate_adp_from_picks(input: CalculateADPFromPicksParams) -> Dict[s
             draft_ids: List[str] = [row[0] for row in draft_query.all()]
 
             if not draft_ids:
-                print(
+                activity.logger.info(
                     f"No drafts found for league_id={input.league_id} "
                     f"season={input.season}"
                 )
@@ -93,7 +93,7 @@ async def calculate_adp_from_picks(input: CalculateADPFromPicksParams) -> Dict[s
                 .all()
             )
 
-        print(
+        activity.logger.info(
             f"Calculating ADP from {len(picks)} picks across {len(draft_ids)} drafts "
             f"(league={input.league_id}, season={input.season}, weighted={input.weighted})"
         )
@@ -139,7 +139,7 @@ async def calculate_adp_from_picks(input: CalculateADPFromPicksParams) -> Dict[s
                 "times_drafted": times_drafted,
             }
 
-        print(
+        activity.logger.info(
             f"ADP calculated for {len(adp_data)} players "
             f"(filtered out {len(player_picks) - len(adp_data)} below "
             f"min_times_drafted={input.min_times_drafted})"
@@ -156,5 +156,5 @@ async def calculate_adp_from_picks(input: CalculateADPFromPicksParams) -> Dict[s
         }
 
     except Exception as e:
-        print(f"Failed to calculate ADP for league {input.league_id}: {str(e)}")
+        activity.logger.error(f"Failed to calculate ADP for league {input.league_id}: {str(e)}")
         raise

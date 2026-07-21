@@ -5,6 +5,8 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 from temporalio import workflow
 
+from observability.logging_config import setup_logging
+
 with workflow.unsafe.imports_passed_through():
     # Service/Client Managers
     from activities.clients.postgres_client import get_postgres_client_manager
@@ -32,6 +34,7 @@ async def main():
     runs the worker event loop.
     """
     try:
+        setup_logging()
         temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
         temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
         temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "task-queue-placeholder")

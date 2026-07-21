@@ -38,7 +38,7 @@ class PlayerDataCollectionWorkflow:
             activity_id=f"activity-get_all_player_data-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(f"Get All Player Data Activity result: {player_upsert_data.get('upserted_players', 0)}/{player_upsert_data.get('total_found_players', 0)} players upserted to database")
+        workflow.logger.info(f"Get All Player Data Activity result: {player_upsert_data.get('upserted_players', 0)}/{player_upsert_data.get('total_found_players', 0)} players upserted to database")
         workflow_activities.append({
             "activity": "get_all_player_data",
             "player_database_operations": player_upsert_data

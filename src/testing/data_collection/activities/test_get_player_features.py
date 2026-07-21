@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from pydantic.dataclasses import dataclass
+from typing import Optional
 
 import pytest
 
@@ -14,7 +14,7 @@ from testing.mocks import DummyPostgresClient
 # Minimal Player stub that mirrors the ORM model's attribute access
 # ---------------------------------------------------------------------------
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class _FakePlayer:
     player_id: str
     full_name: str

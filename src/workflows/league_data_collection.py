@@ -1,5 +1,5 @@
 from datetime import timedelta
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -8,7 +8,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.league.get_data import get_league_data, GetLeagueDataParams
     from workflows.draft_data_collection import DraftDataCollectionWorkflow, DraftDataCollectionWorkflowParams
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class LeagueDataCollectionWorkflowParams:
     """
     Input parameters for the league data collection workflow.
@@ -60,7 +60,7 @@ class LeagueDataCollectionWorkflow:
             activity_id=f"activity-get_league_data-{params.league_id}-{wf_hex}",
             retry_policy=activity_retry_policy,
         )
-        print(f"League Data Activity result: Total Users {len(league_info['league_users'])}, Total Teams {len(league_info['league_rosters'])}")
+        workflow.logger.info(f"League Data Activity result: Total Users {len(league_info['league_users'])}, Total Teams {len(league_info['league_rosters'])}")
         workflow_activities.append({
             "activity": "get_league_data",
             "result": league_info
@@ -77,7 +77,7 @@ class LeagueDataCollectionWorkflow:
             execution_timeout=timedelta(minutes=60),
             task_timeout=timedelta(minutes=10)
         )
-        print(f"DraftDataCollectionWorkflow result for league {params.league_id}, {season} season: {len(draft_workflow_result)}")
+        workflow.logger.info(f"DraftDataCollectionWorkflow result for league {params.league_id}, {season} season: {len(draft_workflow_result)}")
         workflow_activities.append({
             "workflow": "draft-data-collection",
             "result": draft_workflow_result,

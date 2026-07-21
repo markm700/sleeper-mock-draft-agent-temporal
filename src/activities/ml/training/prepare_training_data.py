@@ -16,7 +16,7 @@ The output is structured for direct consumption by train_team_owner_model.
 """
 
 from collections import defaultdict
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from temporalio import activity, workflow
@@ -45,7 +45,7 @@ _ROUND_NORM = 18.0
 _PICK_NORM = 200.0
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class PrepareOwnerTrainingDataParams:
     """
     Parameters for preparing training data for a single team owner's model.
@@ -130,7 +130,7 @@ async def prepare_owner_training_data(
             drafts = draft_query.all()
 
             if not drafts:
-                print(
+                activity.logger.info(
                     f"No drafts found for league {input.league_id} "
                     f"season={input.season}"
                 )
@@ -155,7 +155,7 @@ async def prepare_owner_training_data(
             owner_picks = [p for p in all_picks if p.picked_by == input.user_id]
 
             if len(owner_picks) < input.min_picks_required:
-                print(
+                activity.logger.info(
                     f"Insufficient picks for user {input.user_id}: "
                     f"{len(owner_picks)} < {input.min_picks_required} required"
                 )
@@ -240,7 +240,7 @@ async def prepare_owner_training_data(
             # Compute 26-dim owner profile from all historical picks
             owner_profile = _compute_owner_profile(owner_picks, players_map, adp_data)
 
-            print(
+            activity.logger.info(
                 f"Prepared {len(training_samples)} training samples "
                 f"for user {input.user_id} in league {input.league_id}"
             )
@@ -255,7 +255,7 @@ async def prepare_owner_training_data(
             }
 
     except Exception as e:
-        print(
+        activity.logger.info(
             f"Failed to prepare training data for user {input.user_id} "
             f"in league {input.league_id}: {str(e)}"
         )

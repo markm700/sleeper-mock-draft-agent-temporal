@@ -5,7 +5,7 @@ Used by LeagueModelTrainingWorkflow to discover which owners need models
 trained before orchestrating per-owner training child workflows.
 """
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from temporalio import activity, workflow
@@ -15,7 +15,7 @@ with workflow.unsafe.imports_passed_through():
     from schema.database_models import TeamOwner
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class GetLeagueTeamOwnersParams:
     """
     Parameters for fetching team owners in a league.
@@ -57,7 +57,7 @@ async def get_league_team_owners(input: GetLeagueTeamOwnersParams) -> Dict[str, 
             owners = query.all()
             owner_user_ids: List[str] = [o.user_id for o in owners]
 
-        print(
+        activity.logger.info(
             f"Found {len(owner_user_ids)} team owners in league {input.league_id}"
         )
         return {
@@ -67,5 +67,5 @@ async def get_league_team_owners(input: GetLeagueTeamOwnersParams) -> Dict[str, 
         }
 
     except Exception as e:
-        print(f"Failed to fetch team owners for league {input.league_id}: {str(e)}")
+        activity.logger.error(f"Failed to fetch team owners for league {input.league_id}: {str(e)}")
         raise
