@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from pydantic.dataclasses import dataclass
+from typing import List, Optional
 
 import pytest
 
@@ -15,21 +15,21 @@ from testing.mocks import DummyPostgresClient
 # Lightweight ORM stubs
 # ---------------------------------------------------------------------------
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class _FakeTeamOwner:
     user_id: str
     league_id: str
     display_name: str = "Owner 1"
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class _FakeDraft:
     draft_id: str
     league_id: str
     season: str = "2024"
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class _FakeDraftPick:
     draft_id: str
     pick_no: int
@@ -40,7 +40,7 @@ class _FakeDraftPick:
     roster_id: Optional[int] = None
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class _FakePlayer:
     player_id: str
     full_name: str

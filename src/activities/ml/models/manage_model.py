@@ -14,6 +14,7 @@ from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
     from activities.clients.ml_client import get_ml_model_manager
+    from activities.ml.models.model_interface import DraftModel
     from activities.ml.models.team_owner_model import (
         DRAFT_CONTEXT_DIM,
         OWNER_PROFILE_DIM,
@@ -44,6 +45,28 @@ class BuildOwnerModelParams:
     overwrite: bool = False
 
 
+def _ensure_conforms(model: Any, model_name: str) -> None:
+    """
+    Verify a model satisfies the DraftModel structural interface.
+
+    Guards the model-management workflow against a backend that is missing a
+    required attribute or method. This is a lightweight presence check (the
+    runtime_checkable Protocol does not validate signatures).
+
+    Args:
+        model: The model object to check.
+        model_name: Model identifier, used in the error message.
+
+    Raises:
+        TypeError: If the model does not conform to DraftModel.
+    """
+    if not isinstance(model, DraftModel):
+        raise TypeError(
+            f"Model '{model_name}' ({type(model).__name__}) does not satisfy the "
+            "DraftModel interface"
+        )
+
+
 @activity.defn(name="build_owner_model")
 async def build_owner_model(input: BuildOwnerModelParams) -> Dict[str, Any]:
     """
@@ -65,12 +88,14 @@ async def build_owner_model(input: BuildOwnerModelParams) -> Dict[str, Any]:
 
     try:
         if Path(model_path).exists() and not input.overwrite:
-            print(f"Model already exists at {model_path}, skipping build (overwrite=False)")
-            model = ml_manager.load_model(input.model_name, model_path=model_path)
+            activity.logger.info(f"Model already exists at {model_path}, skipping build (overwrite=False)")
+            model: DraftModel = ml_manager.load_model(input.model_name, model_path=model_path)
+            _ensure_conforms(model, input.model_name)
             return {
                 "model_name": input.model_name,
                 "model_path": model_path,
                 "model_type": type(model).__name__,
+                "config": model.get_config(),
                 "created": False,
             }
 
@@ -80,18 +105,20 @@ async def build_owner_model(input: BuildOwnerModelParams) -> Dict[str, Any]:
             draft_context_dim=input.draft_context_dim,
             personality_dim=input.personality_dim,
         )
+        _ensure_conforms(model, input.model_name)
 
         saved_path = ml_manager.save_model(model, input.model_name, save_path=model_path)
-        print(f"Built and saved model '{input.model_name}' → {saved_path}")
+        activity.logger.info(f"Built and saved model '{input.model_name}' → {saved_path}")
         return {
             "model_name": input.model_name,
             "model_path": saved_path,
             "model_type": type(model).__name__,
+            "config": model.get_config(),
             "created": True,
         }
 
     except Exception as e:
-        print(f"Failed to build model '{input.model_name}': {str(e)}")
+        activity.logger.error(f"Failed to build model '{input.model_name}': {str(e)}")
         raise
 
 
@@ -128,7 +155,7 @@ async def get_model_status(input: GetModelStatusParams) -> Dict[str, Any]:
         size_bytes = path_obj.stat().st_size if exists else None
         cached = input.model_name in ml_manager._models
 
-        print(
+        activity.logger.info(
             f"Model '{input.model_name}': exists_on_disk={exists}, "
             f"size_bytes={size_bytes}, cached_in_memory={cached}"
         )
@@ -141,7 +168,7 @@ async def get_model_status(input: GetModelStatusParams) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        print(f"Failed to query model status for '{input.model_name}': {str(e)}")
+        activity.logger.error(f"Failed to query model status for '{input.model_name}': {str(e)}")
         raise
 
 
@@ -173,11 +200,11 @@ async def list_models() -> Dict[str, Any]:
                 "cached_in_memory": model_name in ml_manager._models,
             })
 
-        print(f"Listed {len(models)} models from {base_path}")
+        activity.logger.info(f"Listed {len(models)} models from {base_path}")
         return {"models": models, "num_models": len(models)}
 
     except Exception as e:
-        print(f"Failed to list models: {str(e)}")
+        activity.logger.error(f"Failed to list models: {str(e)}")
         raise
 
 
@@ -213,13 +240,13 @@ async def delete_model(input: DeleteModelParams) -> Dict[str, Any]:
         if model_path.exists():
             model_path.unlink()
             deleted_from_disk = True
-            print(f"Deleted model file: {model_path}")
+            activity.logger.info(f"Deleted model file: {model_path}")
 
         evicted_from_cache = input.model_name in ml_manager._models
         if evicted_from_cache:
             ml_manager.unload_model(input.model_name)
 
-        print(
+        activity.logger.info(
             f"Model '{input.model_name}': deleted_from_disk={deleted_from_disk}, "
             f"evicted_from_cache={evicted_from_cache}"
         )
@@ -230,5 +257,5 @@ async def delete_model(input: DeleteModelParams) -> Dict[str, Any]:
         }
 
     except Exception as e:
-        print(f"Failed to delete model '{input.model_name}': {str(e)}")
+        activity.logger.error(f"Failed to delete model '{input.model_name}': {str(e)}")
         raise

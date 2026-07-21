@@ -51,10 +51,10 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
     """
 ```
 
-### Dataclass
+### Dataclass (from pydantic.dataclasses)
 
 ```python
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class PrepareOwnerTrainingDataParams:
     """
     Parameters for preparing training data for a single team owner's model.

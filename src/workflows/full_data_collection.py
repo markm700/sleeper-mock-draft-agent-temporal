@@ -1,5 +1,6 @@
+from asyncio import gather
 from datetime import timedelta
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Any, Dict, Optional
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -32,7 +33,7 @@ def _safe_slug(text: str | None) -> str:
     slug = "".join(cleaned).strip("_")
     return slug or "value"
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class FullDataCollectionWorkflowParams:
     """
     Input parameters for the full data collection workflow.
@@ -135,40 +136,41 @@ class FullDataCollectionWorkflow:
 
         # Use the most recent league_id as the primary
         league_id = all_league_ids[0]
-        print(
+        workflow.logger.info(
             f"Found {len(all_league_ids)} seasons for '{params.league_name}': "
             f"{all_league_ids}"
         )
 
         # Step 2: Run league-data-collection for ALL seasons of this league
-        for idx, lid in enumerate(all_league_ids):
-            league_result: Dict[str, Any] = await workflow.execute_child_workflow(
+        league_season_wf_handlers = [
+            workflow.execute_child_workflow(
                 LeagueDataCollectionWorkflow.run,
                 LeagueDataCollectionWorkflowParams(league_id=lid),
-                id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{lid}-{wf_hex}",
+                id=f"child_workflow-league_data_collection-{_safe_slug(params.league_name)}-{idx}-{lid}-{wf_hex}",
                 retry_policy=child_retry_policy,
                 run_timeout=timedelta(minutes=30),
                 execution_timeout=timedelta(minutes=60),
                 task_timeout=timedelta(minutes=10),
-            )
-            child_workflow_results.append(
-                {
-                    "workflow": "league-data-collection",
-                    "league_id": lid,
-                    "season_index": idx,
-                    "result": league_result,
-                }
-            )
-            print(f"League data collected for league_id={lid} ({idx + 1}/{len(all_league_ids)})")
-
+            ) for idx, lid in enumerate(all_league_ids)
+        ]
         # Step 3: Run player-data-collection as a child workflow for this league
-        players_result: Dict[str, Any] = await workflow.execute_child_workflow(
+        player_data_collection_wf = workflow.execute_child_workflow(
             PlayerDataCollectionWorkflow.run,
             id=f"child_workflow-player_data_collection-{wf_hex}",
             retry_policy=child_retry_policy,
             run_timeout=timedelta(minutes=30),
             execution_timeout=timedelta(minutes=60),
             task_timeout=timedelta(minutes=10),
+        )
+        # Step 2 and 3 workflows in parallel, idependent of each other
+        *league_season_results, players_result = await gather(*league_season_wf_handlers, player_data_collection_wf)
+
+        child_workflow_results.append(
+            {
+                "workflow": "league-data-collection",
+                "leagues_processed": len(league_season_results),
+                "result": league_season_results,
+            }
         )
         child_workflow_results.append(
             {

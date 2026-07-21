@@ -86,15 +86,16 @@ class TeamOwnerDraftModel:
             raise RuntimeError("Model has not been trained or loaded yet")
         return self.booster.predict(X)
 
-    def predict_with_random_personality(
+    def predict_with_personality(
         self,
         X_base: np.ndarray,
         personality_col_start: int,
+        random_personality: bool = True
     ) -> tuple[np.ndarray, float]:
         """
-        Predict with a randomly scaled personality influence.
+        Predict with a static or randomly scaled personality influence.
 
-        Scales the personality feature columns by a random factor in [0, 1],
+        When scaling, the personality feature columns are scaled by a random factor in [0, 1],
         simulating per-pick variance in owner behaviour.
 
         Args:
@@ -104,7 +105,7 @@ class TeamOwnerDraftModel:
         Returns:
             (scores, influence_used)
         """
-        influence = random.random()
+        influence = 0.3 if not random_personality else random.random() # default behavior is to randomly scale personality influence
         X = X_base.copy()
         X[:, personality_col_start:] *= influence
         scores = self.predict(X)

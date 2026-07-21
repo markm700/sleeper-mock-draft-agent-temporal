@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import activity, workflow
 
@@ -6,7 +6,8 @@ with workflow.unsafe.imports_passed_through():
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
     from activities.clients.postgres_client import get_postgres_client_manager
     from schema.database_models import DraftPick
-@dataclass
+
+@dataclass(frozen=True, kw_only=True)
 class GetSpecificDraftPicksParams:
     """
     Parameters for fetching picks from a specific draft.
@@ -41,7 +42,7 @@ async def get_specific_draft_picks(input: GetSpecificDraftPicksParams) -> Dict[s
             pick_no = pick.get("pick_no")
             
             if not draft_id or pick_no is None:
-                print(f"Skipping pick with missing required fields: draft_id={draft_id}, pick_no={pick_no}")
+                activity.logger.info(f"Skipping pick with missing required fields: draft_id={draft_id}, pick_no={pick_no}")
                 continue
             
             pick_records.append({
@@ -56,7 +57,7 @@ async def get_specific_draft_picks(input: GetSpecificDraftPicksParams) -> Dict[s
                     "api_metadata": pick.get("metadata", {}),
                 }
             )
-            print(f"Successfully added draft pick #{pick_no} to be batch upserted into database")
+            activity.logger.info(f"Successfully added draft pick #{pick_no} to be batch upserted into database")
         postgres.upsert_records(
             model=DraftPick,
             records=pick_records,
@@ -71,9 +72,9 @@ async def get_specific_draft_picks(input: GetSpecificDraftPicksParams) -> Dict[s
                 "api_metadata"
             ]
         )
-        print(f"Successfully batch upserted {len(pick_records)} draft picks for draft {input.draft_id} to database")
+        activity.logger.info(f"Successfully batch upserted {len(pick_records)} draft picks for draft {input.draft_id} to database")
 
         return { "draft_picks": draft_picks }
     except Exception as e:
-        print(f"Failed to fetch draft picks for {input.draft_id}: {str(e)}")
+        activity.logger.error(f"Failed to fetch draft picks for {input.draft_id}: {str(e)}")
         raise

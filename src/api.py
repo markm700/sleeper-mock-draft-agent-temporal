@@ -5,6 +5,8 @@ from typing import Any, Dict, List
 from fastapi import FastAPI, HTTPException, Query
 from temporalio.client import Client, WorkflowHandle
 
+from .observability.logging_config import setup_logging
+
 temporal_client = None
 CONNECTION_DETAIL = "Temporal server not connected"
 
@@ -35,7 +37,8 @@ def _safe_slug(text: str | None) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage Temporal client lifecycle for the FastAPI application."""
-    # Startup - persistent client connection
+    # Startup - configure logging, then open a persistent client connection
+    setup_logging()
     print(f"Connecting to self-hosted Temporal at {temporal_host}...")
     app.state.temporal_client = await Client.connect(
         temporal_host,

@@ -6,7 +6,7 @@ draft order, runs the prediction activity with the appropriate owner's model
 and removes the selected player from the available pool.
 """
 
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
@@ -26,7 +26,7 @@ with workflow.unsafe.imports_passed_through():
     )
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MockDraftSimulationWorkflowParams:
     """
     Input parameters for MockDraftSimulationWorkflow.
@@ -81,7 +81,7 @@ class MockDraftSimulationWorkflow:
             }
         """
         wf_hex = workflow.info().run_id[-4:]
-        print(
+        workflow.logger.info(
             f"MockDraftSimulationWorkflow starting — league={params.league_id} "
             f"rounds={params.num_rounds} type={params.draft_type}"
         )
@@ -113,10 +113,10 @@ class MockDraftSimulationWorkflow:
                 user_id = parts[1]
                 model_map[user_id] = name
 
-        print(f"Found {len(model_map)} trained owner models")
+        workflow.logger.info(f"Found {len(model_map)} trained owner models")
 
         if not model_map:
-            print("No trained models found — cannot simulate draft.")
+            workflow.logger.info("No trained models found — cannot simulate draft.")
             return {
                 "draft_board": [],
                 "summary_by_owner": {},
@@ -140,7 +140,7 @@ class MockDraftSimulationWorkflow:
             retry_policy=activity_retry_policy,
         )
         adp_data = adp_result.get("adp_data", {})
-        print(
+        workflow.logger.info(
             f"ADP calculated: {adp_result['num_players']} players, "
             f"{adp_result['num_picks']} picks"
         )
@@ -166,7 +166,7 @@ class MockDraftSimulationWorkflow:
         owner_profiles = context_result["owner_profiles"]
         num_teams = context_result["num_teams"]
 
-        print(
+        workflow.logger.info(
             f"Draft context ready: {num_teams} teams, "
             f"{len(candidate_players)} candidates"
         )
@@ -207,7 +207,7 @@ class MockDraftSimulationWorkflow:
                 ]
 
                 if not remaining:
-                    print(f"Pick {pick_no}: No candidates remaining — ending draft")
+                    workflow.logger.info(f"Pick {pick_no}: No candidates remaining — ending draft")
                     break
 
                 # Build draft context for this pick
@@ -280,7 +280,7 @@ class MockDraftSimulationWorkflow:
                 owner_rosters[user_id].append(picked_player)
 
                 if pick_no % 10 == 0 or pick_no <= 5:
-                    print(
+                    workflow.logger.info(
                         f"Pick {pick_no} (R{round_num}): "
                         f"{display_name} → {picked_player['full_name']} "
                         f"({picked_player['position']})"
@@ -300,7 +300,7 @@ class MockDraftSimulationWorkflow:
                 "positions_drafted": [p["position"] for p in owner_picks],
             }
 
-        print(
+        workflow.logger.info(
             f"MockDraftSimulationWorkflow complete — "
             f"{len(draft_board)} picks across {params.num_rounds} rounds"
         )
