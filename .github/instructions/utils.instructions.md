@@ -67,9 +67,9 @@ def get_config() -> Config:
 
 ### Current Practice
 
-- **In workflows**: Use `print()` for logging (workflow.logger is deprecated in newer Temporal versions)
-- **In activities**: Use `print()` for logging (simpler than activity.logger)
-- **In regular modules**: Use Python's standard `logging.getLogger(__name__)`
+- **In workflows**: Use `workflow.logger` — it is replay-aware and injects workflow context (`workflow.logger` is **NOT** deprecated)
+- **In activities**: Use `activity.logger` — it injects activity context
+- **In regular modules** (clients, helpers): Use Python's standard `logging.getLogger(__name__)`
 
 ### Future Implementation (`logging.py`)
 

@@ -9,11 +9,12 @@ When working with Temporal activities in this project:
 ## Core Patterns
 
 - Use `@activity.defn` decorator with `name` parameter on async functions
-- Use `print()` for logging (simpler than activity.logger)
+- Prefer `activity.logger` for logging (injects activity context).
 - Always include try/except with error logging before raising
 - All activities MUST be async
 - Use dataclasses from pydantic.dataclasses for activity parameters
 - Return `Dict[str, Any]` for structured results
+- Activities (unlike workflows) MAY do I/O-bound operations — Sleeper API calls, PostgreSQL queries, ML training/inference. Data-collection and ML activities are registered on separate task queues/workers.
 
 ## Sleeper API Activities
 
@@ -30,7 +31,7 @@ For Sleeper API calls using httpx AsyncClient:
 
 Example:
 ```python
-from from pydantic.dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 from typing import Dict, Any
 from temporalio import activity, workflow
 
@@ -49,10 +50,10 @@ async def get_league_data(input: GetLeagueDataParams) -> Dict[str, Any]:
     
     try:
         league_data = await sleeper.get_league(league_id=input.league_id)
-        print(f"Successfully fetched league: {input.league_id}")
+        activity.logger.info(f"Successfully fetched league: {input.league_id}")
         return {"league_data": league_data}
     except Exception as e:
-        print(f"Failed to fetch league {input.league_id}: {str(e)}")
+        activity.logger.error(f"Failed to fetch league {input.league_id}: {str(e)}")
         raise
 ```
 
@@ -81,21 +82,21 @@ async def get_traded_draft_picks(input: GetTradedDraftPicksParams) -> Dict[str, 
             if pick.get("season") == input.season
         ]
         
-        print(f"Fetched {len(filtered_picks)} traded picks for season {input.season}")
+        activity.logger.info(f"Fetched {len(filtered_picks)} traded picks for season {input.season}")
         return {"traded_draft_picks": filtered_picks}
     except Exception as e:
-        print(f"Failed to fetch traded picks: {str(e)}")
+        activity.logger.error(f"Failed to fetch traded picks: {str(e)}")
         raise
 ```
 
 ## Worker Registration
 
-After creating a new activity, register it in `src/workers/workflow_worker.py`:
+After creating a new activity, register it in the matching worker within the `src/workers/` folder. Imports use the `PYTHONPATH=src` top-level form (no `src.` prefix):
 
 ```python
 with workflow.unsafe.imports_passed_through():
-    from src.activities.draft.get_drafts import get_league_drafts
-    from src.activities.draft.get_traded_draft_picks import get_traded_draft_picks
+    from activities.draft.get_drafts import get_league_drafts
+    from activities.draft.get_traded_draft_picks import get_traded_draft_picks
     # ... other imports
 
 worker = Worker(
@@ -112,6 +113,7 @@ worker = Worker(
 
 ## Import Patterns
 
-- **In activities**: use relative imports (e.g., `from ..clients.sleeper_client_credential import...`)
-- **In worker registration**: use absolute `src.` imports
-- **In workflows**: use relative imports (e.g., `from activities.draft.get_drafts import...`)
+All imports use the top-level form resolved via `PYTHONPATH=src` — there is no `src.` prefix anywhere:
+- **In activities**: `from activities.clients.sleeper_client_credential import ...`
+- **In worker registration**: `from activities.draft.get_drafts import ...`
+- **In workflows**: `from activities.draft.get_drafts import ...` (wrapped in `workflow.unsafe.imports_passed_through()`)

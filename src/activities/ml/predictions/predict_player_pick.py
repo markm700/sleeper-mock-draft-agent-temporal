@@ -185,9 +185,9 @@ async def predict_owner_draft_pick(input: PredictOwnerDraftPickParams) -> Dict[s
             X_scored[:, personality_col_start:] *= influence
             pick_scores_np = model.predict(X_scored)
         else:
-            pick_scores_np, influence = model.predict_with_random_personality(
-                X_scored, personality_col_start
-            )
+            pick_scores_np, influence = model.predict_with_personality(
+                X_scored, personality_col_start, False
+            ) # False indicated NO random personality scaling (constant perosnality influence)
 
         print(f"Scoring {n} candidate players for owner model '{input.model_name}'")
 

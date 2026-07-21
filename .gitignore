@@ -88,10 +88,10 @@ Thumbs.db
 .results/
 
 # Project specific
-mock-draft-agent-guides/
-custom-specs/
-LICENSE.md
-models/
+/mock-draft-agent-guides/
+/custom-specs/
+/LICENSE.md
+/models/
 
 ## AI Generated (Early Context)
-src/ai-generated/
+/src/ai-generated/

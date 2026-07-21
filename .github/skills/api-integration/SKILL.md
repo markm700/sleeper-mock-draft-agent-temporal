@@ -290,28 +290,29 @@ class RateLimitedClient:
         return response.json()
 ```
 
-## Export New Activities
+## Register New Activities
 
-Add to `src/activities/__init__.py`:
+Keep `src/activities/__init__.py` as a docstring only (no imports, no `__all__`).
+Register the new activities in the appropriate worker instead — imports use the
+`PYTHONPATH=src` top-level form (no `src.` prefix):
 
 ```python
-from src.activities.{api_name}_client import (
-    fetch_{resource},
-    list_{resources},
-)
+with workflow.unsafe.imports_passed_through():
+    from activities.{api_name}_client import fetch_{resource}, list_{resources}
 
-__all__ = [
-    # Existing exports...
-    "fetch_{resource}",
-    "list_{resources}",
-]
+worker = Worker(
+    client,
+    task_queue=temporal_task_queue,
+    workflows=[...],
+    activities=[fetch_{resource}, list_{resources}],
+)
 ```
 
 ## Usage in Workflows
 
 ```python
 with workflow.unsafe.imports_passed_through():
-    from src.activities.{api_name}_client import fetch_{resource}
+    from activities.{api_name}_client import fetch_{resource}
 
 @workflow.defn
 class MyWorkflow:

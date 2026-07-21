@@ -1,10 +1,16 @@
 ---
-applyTo: "src/models/**/*.py"
+applyTo: "src/schema/**/*.py"
 ---
 
 # Data Model Instructions
 
-> **Note**: This directory and these patterns are for future implementation when database storage is added.
+SQLAlchemy models live in `src/schema/database_models.py`. See `src/schema/SCHEMA.md`
+and `src/schema/ERD.md` for the full schema and entity relationships.
+
+> **Important**: ORM model classes must remain **mutable** — do NOT decorate them with
+> `@dataclass(frozen=True)`. SQLAlchemy sets `_sa_instance_state` on instances during
+> loading; a frozen class raises `FrozenInstanceError` on read paths (`session.query(...).all()`).
+> Use pydantic dataclasses only for activity/workflow **params**, not ORM entities.
 
 ## Database Models (`database_models.py`)
 
@@ -92,7 +98,11 @@ class LeagueResponse:
 ## Schema Changes
 
 When adding new models:
-1. Add model to `src/models/database_models.py`
-2. Create corresponding activities in `src/activities/database.py`
-3. Create Alembic migration: `alembic revision --autogenerate -m "Add {table_name} table"`
+1. Add the model to `src/schema/database_models.py`
+2. Create corresponding activities under `src/activities/` (persist via the PostgreSQL
+   client's `upsert_record` / `upsert_records`, which use `INSERT ... ON CONFLICT`)
+3. Update `src/schema/SCHEMA.md` / `ERD.md`
 4. Add relationships to related models with `back_populates`
+
+> Tables are currently created at worker startup via `create_all_tables()`.
+> migrations are planned but not yet in place.

@@ -24,7 +24,8 @@ Use this skill to create a new Temporal workflow that follows project convention
    - Returns `Dict[str, Any]`
    - Calls activities via `workflow.execute_activity(name, params, ...)`
    - Specifies `start_to_close_timeout` and `retry_policy` for each activity
-   - Uses `print()` for logging (workflow.logger deprecated in newer Temporal)
+   - Uses `workflow.logger` for logging (replay-aware; NOT deprecated)
+   - Runs independent activities concurrently with `asyncio.gather`; awaits sequentially only on data dependencies
    - Handles errors gracefully
 
 ## Example: Simple Workflow
@@ -54,7 +55,7 @@ class DraftDataCollectionWorkflow:
     
     @workflow.run
     async def run(self, input: DraftDataCollectionParams) -> Dict[str, Any]:
-        print(f"Starting draft data collection for league {input.league_id}")
+        workflow.logger.info(f"Starting draft data collection for league {input.league_id}")
         
         # Fetch league drafts
         drafts_result = await workflow.execute_activity(
@@ -70,7 +71,7 @@ class DraftDataCollectionWorkflow:
         )
         
         league_drafts = drafts_result["league_drafts"]
-        print(f"Fetched {len(league_drafts)} drafts")
+        workflow.logger.info(f"Fetched {len(league_drafts)} drafts")
         
         return {
             "drafts": league_drafts,
@@ -113,13 +114,13 @@ class FullDataCollectionWorkflow:
     
     @workflow.run
     async def run(self, input: FullDataCollectionParams) -> Dict[str, Any]:
-        print(f"Starting full data collection for {input.username}")
+        workflow.logger.info(f"Starting full data collection for {input.username}")
         
         # Execute league data collection child workflow
-        l@workflow.defn(name="...")` with explicit workflow name
+        @workflow.defn(name="...")` with explicit workflow name
 - ✅ Use `workflow.execute_activity(name, params, ...)` for ALL external interactions
 - ✅ Pass activity parameters as dataclass instances
-- ✅ Use `print()` for logging (workflow.logger deprecated in newer Temporal versions)
+- ✅ Use `workflow.logger` for logging (replay-aware; NOT deprecated — don't add new `print()` calls)
 - ✅ Import activities/other workflows with relative imports (e.g., `from activities.draft.get_drafts import...`)
 - ✅ Import non-deterministic modules inside `workflow.unsafe.imports_passed_through()`
 - ❌ NEVER make direct API calls or database queries in workflows
@@ -134,7 +135,7 @@ Add workflow to `src/workers/workflow_worker.py`:
 
 ```python
 with workflow.unsafe.imports_passed_through():
-    from src.workflows.draft_data_collection import DraftDataCollectionWorkflow
+    from workflows.draft_data_collection import DraftDataCollectionWorkflow
     # Add new workflow import
 
 worker = Worker(
@@ -159,11 +160,11 @@ Ensure `src/workflows/__init__.py` contains only a docstring (no imports or `__a
 ### 3. Import Patterns
 
 - **In workflows**: use relative imports (e.g., `from activities.draft.get_drafts import...`)
-- **In worker registration**: use absolute `src.` imports (e.g., `from src.workflows.draft_data_collection import...`)_id']}",
+- **In worker registration**: use the same top-level form (e.g., `from workflows.draft_data_collection import...`) — `PYTHONPATH=src`, no `src.` prefix
             task_queue="temporal-task-queue",
         )
         
-        print("Completed full data collection")
+        workflow.logger.info("Completed full data collection")
         
         return {
             "league_data": league_data,
@@ -184,13 +185,7 @@ Ensure `src/workflows/__init__.py` contains only a docstring (no imports or `__a
 
 ## After Creation
 
-1. Add workflow to `src/workflows/__init__.py`:
-   ```python
-   __all__ = [
-       "ExistingWorkflow",
-       "{WorkflowName}",  # Add new workflow
-   ]
-   ```
+1. Keep `src/workflows/__init__.py` as a docstring only (no imports, no `__all__`) — register the workflow in the worker instead (see "Register in Worker" above)
 
 2. Create corresponding activities if needed (see `temporal-activity` skill)
 
