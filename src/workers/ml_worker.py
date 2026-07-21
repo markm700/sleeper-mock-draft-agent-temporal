@@ -11,6 +11,7 @@ with workflow.unsafe.imports_passed_through():
     # Service/Client Managers
     from activities.clients.postgres_client import get_postgres_client_manager
     from activities.clients.ml_client import get_ml_model_manager
+    from activities.clients.langfuse_client import get_langfuse_client_manager
     # ML Workflows
     from workflows.model_management import ModelManagementWorkflow
     from workflows.model_training import ModelTrainingWorkflow
@@ -49,9 +50,10 @@ async def main():
         # Initialize activity/workflow clients
         postgres = get_postgres_client_manager()
         ml_client = get_ml_model_manager()
+        langfuse = get_langfuse_client_manager()
 
         try:
-            print(f"Starting ML Workflow Worker...")
+            print(f"Starting ML Worker...")
             worker = Worker(
                 client,
                 task_queue=temporal_task_queue,
@@ -77,20 +79,21 @@ async def main():
                     get_draft_simulation_context,
                 ],
             )
-            print("ML Workflow Worker started.")
+            print("ML Worker started.")
 
             await worker.run()
         except Exception as e:
-            print(f"ML Workflow Worker failed to start: {e}")
+            print(f"ML Worker failed to start: {e}")
         finally:
             ml_client.close()
+            langfuse.close()
             await postgres.close()
-            print("ML Workflow Worker has shut down.")
+            print("ML Worker has shut down.")
 
     except KeyboardInterrupt:
-        print("ML Workflow Worker stopped by user")
+        print("ML Worker stopped by user")
     except Exception as e:
-        print(f"ML Workflow Worker error: {e}\n{traceback.format_exc()}")
+        print(f"ML Worker error: {e}\n{traceback.format_exc()}")
         raise
 
 if __name__ == "__main__":

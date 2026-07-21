@@ -17,6 +17,7 @@ from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
     from activities.clients.ml_client import get_ml_model_manager
+    from activities.clients.langfuse_client import get_langfuse_client_manager
     from activities.ml.models.team_owner_model import (
         DRAFT_CONTEXT_DIM,
         OWNER_PROFILE_DIM,
@@ -55,8 +56,10 @@ class TrainTeamOwnerModelParams:
     num_boost_round: int = 100
     learning_rate: float = 0.05
 
+langfuse_client = get_langfuse_client_manager()
 
 @activity.defn(name="train_team_owner_model")
+@langfuse_client.traced_activity(name="training-train_team_owner_model")
 async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, Any]:
     """
     Train a TeamOwnerDraftModel (LightGBM) on historical draft picks.

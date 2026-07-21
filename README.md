@@ -106,8 +106,20 @@ This will start:
 - **Data Collection Worker Service**
 - **ML Worker Service**
 
-> **Note**: Database tables are created automatically by the worker at startup
+**Note**: Database tables are created automatically by the worker at startup
 > (`create_all_tables`). Alembic migrations are planned but not yet in place.
+
+4. Make the `run_api.sh` script executable for running commands, workflows, and simulations:
+```bash
+chmod +x ./scripts/run_api.sh
+```
+
+4. (Optional) Alias the folder location for the executable script for easier access:
+```bash
+alias mockdraftagent="./scripts/run_api.sh"
+# Note: The script `run_api.sh` is the main entry point for running commands, workflows, and simulations. 
+# 'mockdraftagent' is the default but can be customized to your preference.
+```
 
 ### Running the Application
 
