@@ -89,15 +89,14 @@ async def get_draft_simulation_context(
                 owner_display_names = {o.user_id: o.display_name for o in owners}
 
                 sorted_slots = sorted(draft.draft_order.items(), key=lambda x: int(x[1]))
-                for user_id_key, slot in sorted_slots:
-                    display_name = owner_display_names.get(user_id_key)
-                    if display_name:
-                        draft_order_list.append({
+                draft_order_list = [{
                             "user_id": user_id_key,
                             "display_name": display_name,
                             "draft_slot": int(slot),
                             "roster_id": int(slot),
-                        })
+                        } for user_id_key, slot in sorted_slots 
+                        if (display_name := owner_display_names.get(user_id_key)) is not None
+                    ]
             else:
                 # Fallback: alphabetical by display_name
                 for idx, owner in enumerate(sorted(owners, key=lambda o: o.display_name or ""), 1):
@@ -124,11 +123,7 @@ async def get_draft_simulation_context(
 
             # Enrich with ADP and sort
             adp_lookup = input.adp_data or {}
-            candidate_players: List[Dict[str, Any]] = []
-            for player in all_players:
-                adp_info = adp_lookup.get(player.player_id, {})
-                adp_val = adp_info.get("adp", 999.0)
-                candidate_players.append({
+            candidate_players: List[Dict[str, Any]] = [{
                     "player_id": player.player_id,
                     "full_name": player.full_name,
                     "position": player.position,
@@ -142,7 +137,10 @@ async def get_draft_simulation_context(
                     "times_drafted": adp_info.get("times_drafted", 0),
                     "projected_points": 0.0,
                     "position_rank": 999,
-                })
+                } for player in all_players 
+                if (adp_info := adp_lookup.get(player.player_id, {})) is not None and 
+                    (adp_val := adp_info.get("adp", 999.0)) is not None
+            ]
 
             # Sort by ADP (best first), limit to 2x total picks for efficiency
             candidate_players.sort(key=lambda p: p["adp"])
@@ -257,11 +255,10 @@ def _compute_owner_profile(
     late_rates = position_rates(late_picks)
 
     # ADP deviation: how far from expected ADP do they pick?
-    deviations = []
-    for p in owner_picks:
-        adp_info = adp_data.get(p.player_id, {})
-        expected_adp = adp_info.get("adp", p.pick_no)
-        deviations.append(p.pick_no - expected_adp)
+    deviations = [(p.pick_no - expected_adp) for p in owner_picks 
+                if (adp_info := adp_data.get(p.player_id, {})) is not None and 
+                (expected_adp := adp_info.get("adp", p.pick_no)) is not None
+        ]
 
     avg_deviation = sum(deviations) / len(deviations) if deviations else 0.0
     # Normalize to 0-1 range (negative = reaching, positive = value picks)

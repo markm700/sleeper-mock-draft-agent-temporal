@@ -62,13 +62,7 @@ async def get_player_features_from_db(input: GetPlayerFeaturesParams) -> Dict[st
             query = select(Player).where(Player.player_id.in_(input.player_ids))
             players = session.execute(query).scalars().all()
 
-            player_features = []
-            for player in players:
-                adp_info = {}
-                if input.adp_data:
-                    adp_info = input.adp_data.get(player.player_id, {})
-
-                feature_dict = {
+            player_features = [{
                     "player_id": player.player_id,
                     "full_name": player.full_name,
                     "position": player.position,
@@ -82,9 +76,10 @@ async def get_player_features_from_db(input: GetPlayerFeaturesParams) -> Dict[st
                     "times_drafted": adp_info.get("times_drafted", 0),
                     "projected_points": 0.0,
                     "position_rank": 999,
-                }
-                player_features.append(feature_dict)
-
+                } for player in players 
+                if (adp_info := input.adp_data.get(player.player_id, {})) is not None
+            ]
+        
         activity.logger.info(f"Fetched features for {len(player_features)} players from PostgreSQL")
         return {
             "player_features": player_features,
@@ -347,9 +342,7 @@ def _prepare_player_features_only(player_features: List[Dict[str, Any]]) -> np.n
         "Active": 1.0, "Inactive": 0.0, "Reserve": 0.5, "PUP": 0.3, "Suspended": 0.2,
     }
 
-    vectors = []
-    for p in player_features:
-        vectors.append([
+    vectors = [ [
             float(position_map.get(p.get("position") or "", -1)),
             status_map.get(p.get("status") or "Active", 0.5),
             (p.get("age") or 25) / 100.0,
@@ -361,7 +354,7 @@ def _prepare_player_features_only(player_features: List[Dict[str, Any]]) -> np.n
             1.0 / ((p.get("position_rank") or 999) + 1),
             1.0 if p.get("team") else 0.0,
             1.0 if p.get("injury_status") else 0.0,
-        ])
+        ] for p in player_features]
     return np.array(vectors, dtype=np.float32)
 
 

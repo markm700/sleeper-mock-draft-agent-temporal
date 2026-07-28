@@ -193,15 +193,13 @@ async def list_models() -> Dict[str, Any]:
         models_dir.mkdir(parents=True, exist_ok=True)
         model_files = sorted(models_dir.glob("*.joblib"))
 
-        models = []
-        for model_file in model_files:
-            model_name = model_file.stem
-            models.append({
-                "model_name": model_name,
-                "model_path": str(model_file),
+        models = [{
+                "model_name": model_file.stem,
+                "model_path": str(model_file.stem),
                 "size_bytes": model_file.stat().st_size,
-                "cached_in_memory": model_name in ml_manager._models,
-            })
+                "cached_in_memory": model_file.stem in ml_manager._models,
+            } for model_file in model_files
+        ]
 
         activity.logger.info(f"Listed {len(models)} models from {base_path}")
         return {"models": models, "num_models": len(models)}
