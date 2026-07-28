@@ -36,6 +36,8 @@ env/
 
 # Claude Code (local session settings)
 .claude/
+.github/
+.mcp.json
 
 # Environment Variables
 .env
