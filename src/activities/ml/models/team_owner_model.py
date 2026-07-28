@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional
 import lightgbm as lgb
 import numpy as np
 
+from activities.ml.models.registry import register_model
+
 # Owner profile feature names — derived from historical draft data.
 OWNER_PROFILE_FEATURES: List[str] = [
     "early_qb_rate", "early_rb_rate", "early_wr_rate",
@@ -35,6 +37,7 @@ DRAFT_CONTEXT_DIM: int = 8
 NUM_POSITIONS: int = 6  # QB, RB, WR, TE, K, DEF
 
 
+@register_model("TeamOwnerDraftModel")
 class TeamOwnerDraftModel:
     """
     Owner-centric draft prediction model backed by LightGBM.

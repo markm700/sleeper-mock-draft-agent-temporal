@@ -92,6 +92,75 @@ async def test_build_owner_model_overwrite_rebuilds(
     assert result["created"] is True
 
 
+@pytest.mark.asyncio
+async def test_build_owner_model_defaults_to_team_owner_model(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """The default model_type builds a TeamOwnerDraftModel via the registry factory."""
+    dummy_ml = DummyMLModelManager()
+
+    monkeypatch.setattr(
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
+    )
+    monkeypatch.setenv("MODEL_PATH", str(tmp_path))
+
+    params = BuildOwnerModelParams(model_name="default_type_model")
+    result = await build_owner_model(params)
+
+    assert result["created"] is True
+    assert result["model_type"] == "TeamOwnerDraftModel"
+    assert type(dummy_ml._models["default_type_model"]).__name__ == "TeamOwnerDraftModel"
+
+
+@pytest.mark.asyncio
+async def test_build_owner_model_explicit_model_type(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """An explicit registered model_type is honoured by the factory."""
+    dummy_ml = DummyMLModelManager()
+
+    monkeypatch.setattr(
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
+    )
+    monkeypatch.setenv("MODEL_PATH", str(tmp_path))
+
+    params = BuildOwnerModelParams(
+        model_name="explicit_type_model",
+        model_type="TeamOwnerDraftModel",
+    )
+    result = await build_owner_model(params)
+
+    assert result["created"] is True
+    assert result["model_type"] == "TeamOwnerDraftModel"
+
+
+@pytest.mark.asyncio
+async def test_build_owner_model_unknown_model_type_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """An unregistered model_type surfaces the registry's ValueError."""
+    dummy_ml = DummyMLModelManager()
+
+    monkeypatch.setattr(
+        "activities.ml.models.manage_model.get_ml_model_manager",
+        lambda: dummy_ml,
+    )
+    monkeypatch.setenv("MODEL_PATH", str(tmp_path))
+
+    params = BuildOwnerModelParams(
+        model_name="bad_type_model",
+        model_type="NoSuchBackend",
+    )
+
+    with pytest.raises(ValueError, match="NoSuchBackend"):
+        await build_owner_model(params)
+
+
 # ---------------------------------------------------------------------------
 # get_model_status tests
 # ---------------------------------------------------------------------------

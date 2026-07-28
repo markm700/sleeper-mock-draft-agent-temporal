@@ -15,11 +15,11 @@ from temporalio import activity, workflow
 with workflow.unsafe.imports_passed_through():
     from activities.clients.ml_client import get_ml_model_manager
     from activities.ml.models.model_interface import DraftModel
+    from activities.ml.models.registry import create_model
     from activities.ml.models.team_owner_model import (
         DRAFT_CONTEXT_DIM,
         OWNER_PROFILE_DIM,
         PLAYER_FEATURE_DIM,
-        TeamOwnerDraftModel,
     )
 
 
@@ -30,6 +30,7 @@ class BuildOwnerModelParams:
 
     Args:
         model_name: Unique model identifier, e.g. "owner_{user_id}_{league_id}_v1".
+        model_type: Registered DraftModel backend to build (default "TeamOwnerDraftModel").
         player_feature_dim: Per-player feature dimension (default 9).
         owner_profile_dim: Owner historical profile dimension (default 26).
         draft_context_dim: Draft-state context dimension (default 8).
@@ -38,6 +39,7 @@ class BuildOwnerModelParams:
     """
 
     model_name: str
+    model_type: str = "TeamOwnerDraftModel"
     player_feature_dim: int = PLAYER_FEATURE_DIM
     owner_profile_dim: int = OWNER_PROFILE_DIM
     draft_context_dim: int = DRAFT_CONTEXT_DIM
@@ -99,7 +101,8 @@ async def build_owner_model(input: BuildOwnerModelParams) -> Dict[str, Any]:
                 "created": False,
             }
 
-        model = TeamOwnerDraftModel(
+        model = create_model(
+            input.model_type,
             player_feature_dim=input.player_feature_dim,
             owner_profile_dim=input.owner_profile_dim,
             draft_context_dim=input.draft_context_dim,
