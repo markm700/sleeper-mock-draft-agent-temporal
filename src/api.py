@@ -226,7 +226,7 @@ async def invoke_model_training_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{user_id}-{league_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_ml_prediction_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -266,7 +266,7 @@ async def invoke_league_model_training_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{league_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_ml_prediction_task_queue,
+            task_queue=temporal_ml_task_queue,
         )
         wf_result = await wf.result()
 
@@ -483,7 +483,7 @@ async def invoke_model_prediction_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{_safe_slug(model_name)}-{user_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_ml_task_queue,
+            task_queue=temporal_ml_prediction_task_queue,
         )
         wf_result = await wf.result()
 
