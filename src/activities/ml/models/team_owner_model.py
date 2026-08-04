@@ -11,7 +11,7 @@ applies softmax over the raw scores to obtain pick probabilities.
 """
 
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Final, List, Optional
 
 import lightgbm as lgb
 import numpy as np
@@ -32,9 +32,9 @@ OWNER_PROFILE_FEATURES: List[str] = [
 ]
 OWNER_PROFILE_DIM: int = len(OWNER_PROFILE_FEATURES)
 
-PLAYER_FEATURE_DIM: int = 11
-DRAFT_CONTEXT_DIM: int = 8
-NUM_POSITIONS: int = 6  # QB, RB, WR, TE, K, DEF
+PLAYER_FEATURE_DIM: Final[int] = 11
+DRAFT_CONTEXT_DIM: Final[int] = 8
+NUM_POSITIONS: Final[int] = 6  # QB, RB, WR, TE, K, DEF
 
 
 @register_model("TeamOwnerDraftModel")

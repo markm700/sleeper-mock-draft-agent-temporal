@@ -1,19 +1,20 @@
 import os
 from contextlib import asynccontextmanager
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Final
 from fastapi import FastAPI, HTTPException, Query
 from temporalio.client import Client, WorkflowHandle
 
 from .observability.logging_config import setup_logging
 
 temporal_client = None
-CONNECTION_DETAIL = "Temporal server not connected"
+CONNECTION_DETAIL: Final[str] = "Temporal server not connected"
 
 temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
 temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
 temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "task-queue")
 temporal_ml_task_queue: str = os.getenv("TEMPORAL_ML_TASK_QUEUE", "task-queue-ml")
+temporal_ml_prediction_task_queue: str = os.getenv("TEMPORAL_ML_PREDICTION_TASK_QUEUE", "task-queue-ml-prediction")
 
 
 def _safe_slug(text: str | None) -> str:
@@ -225,7 +226,7 @@ async def invoke_model_training_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{user_id}-{league_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_ml_task_queue,
+            task_queue=temporal_ml_prediction_task_queue,
         )
         wf_result = await wf.result()
 
@@ -265,7 +266,7 @@ async def invoke_league_model_training_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{league_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_ml_task_queue,
+            task_queue=temporal_ml_prediction_task_queue,
         )
         wf_result = await wf.result()
 

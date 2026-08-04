@@ -37,7 +37,8 @@ async def main():
         setup_logging()
         temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
         temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
-        temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "task-queue-placeholder")
+        temporal_ml_task_queue: str = os.getenv("TEMPORAL_ML_TASK_QUEUE", "ml-task-queue")
+        temporal_ml_prediction_task_queue: str = os.getenv("TEMPORAL_ML_PREDICTION_TASK_QUEUE", "ml-prediction-task-queue")
 
         print(f"Connecting to Temporal server {temporal_host} namespace={temporal_namespace} ...")
         client = await Client.connect(
@@ -54,38 +55,54 @@ async def main():
             print(f"Starting ML Workflow Worker...")
             worker = Worker(
                 client,
-                task_queue=temporal_task_queue,
+                task_queue=temporal_ml_task_queue,
+                max_concurrent_activities=4,
+                max_concurrent_workflow_tasks=100,
                 workflows=[
                     ModelManagementWorkflow,
                     ModelTrainingWorkflow,
                     LeagueModelTrainingWorkflow,
+                ],
+                activities=[
+                    get_model_status,
+                    build_owner_model,
+                    list_models,
+                    delete_model,
+                    calculate_adp_from_picks,
+                    prepare_owner_training_data,
+                    train_team_owner_model,
+                    get_league_team_owners,
+                ],
+            )
+
+            print(f"Starting ML Prediction Worker...")
+            worker_prediction = Worker(
+                client,
+                task_queue=temporal_ml_prediction_task_queue,
+                max_concurrent_activities=30,
+                max_concurrent_workflow_tasks=100,
+                workflows=[
                     ModelPredictionWorkflow,
                     MockDraftSimulationWorkflow,
                 ],
                 activities=[
+                    get_player_features_from_db,
                     predict_owner_draft_pick,
                     batch_predict_owner,
-                    get_player_features_from_db,
-                    calculate_adp_from_picks,
-                    build_owner_model,
-                    get_model_status,
                     list_models,
-                    delete_model,
-                    prepare_owner_training_data,
-                    train_team_owner_model,
-                    get_league_team_owners,
+                    calculate_adp_from_picks,
                     get_draft_simulation_context,
                 ],
             )
-            print("ML Workflow Worker started.")
+            print("ML Workflow and Prediction Worker started.")
 
-            await worker.run()
+            await asyncio.gather(worker.run(), worker_prediction.run())
         except Exception as e:
-            print(f"ML Workflow Worker failed to start: {e}")
+            print(f"ML Workflow and/or Prediction Worker failed to start: {e}")
         finally:
             ml_client.close()
             await postgres.close()
-            print("ML Workflow Worker has shut down.")
+            print("ML Workflow and Prediction Worker has shut down.")
 
     except KeyboardInterrupt:
         print("ML Workflow Worker stopped by user")

@@ -5,7 +5,6 @@ Scores candidate players using a trained TeamOwnerDraftModel (LightGBM) and
 returns ranked predictions with pick probabilities.
 """
 
-import random
 from pydantic.dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 

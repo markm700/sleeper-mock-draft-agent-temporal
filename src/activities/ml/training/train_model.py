@@ -6,6 +6,7 @@ trains a LightGBM ranking model where the picked player (target_idx=0) is
 the relevant document among MAX_NEGATIVES + 1 candidates per query group.
 """
 
+import asyncio
 import os
 from pydantic.dataclasses import dataclass
 from pathlib import Path
@@ -151,7 +152,7 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
             "verbose": -1,
         }
 
-        booster = lgb.train(
+        booster = await asyncio.to_thread(lgb.train,
             params,
             train_data,
             num_boost_round=input.num_boost_round,
