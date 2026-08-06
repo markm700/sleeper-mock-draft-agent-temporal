@@ -46,10 +46,10 @@ async def lifespan(app: FastAPI):
         namespace=temporal_namespace,
     )
     print(f"Connected to Temporal: {app.state.temporal_client}")
-    
+
     yield  # App running
-    
-    ## Shutdown - close client
+
+    ## Shutdown - close Temporal client
     print("Disconnecting from Temporal...")
     if app.state.temporal_client:
         await app.state.temporal_client.close()
@@ -85,7 +85,6 @@ async def healthz_data_collection_worker_service_status():
         "task_queue": temporal_task_queue,
         "client_connected": app.state.temporal_client is not None
     }
-
 
 
 # Workflow Invocations
@@ -441,7 +440,7 @@ async def invoke_mock_draft_simulation_workflow(
             workflow_name,
             args=[params],
             id=f"workflow-{_safe_slug(workflow_name)}-{league_id}-{os.urandom(4).hex()}",
-            task_queue=temporal_ml_task_queue,
+            task_queue=temporal_ml_prediction_task_queue,
         )
         wf_result = await wf.result()
 

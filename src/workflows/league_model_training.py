@@ -6,6 +6,7 @@ a ModelTrainingWorkflow child workflow for each owner. This avoids redundant
 ADP computation and provides a single workflow to train all 10 (or N) models.
 """
 
+import asyncio
 from pydantic.dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
@@ -164,20 +165,25 @@ class LeagueModelTrainingWorkflow:
         })
 
         # ------------------------------------------------------------------
-        # Step 3: Train each owner's model via child workflows
+        # Step 3: Train each owner's model via child workflows (in parallel)
         # ------------------------------------------------------------------
+        # Every child throughput is still bounded by the training worker's 
+        # activity slots/CPU (each child runs the CPU-heavy activity), 
+        # so scale workers/slots to speed up further.
         owner_results: List[Dict[str, Any]] = []
         num_trained = 0
         num_skipped = 0
+        num_failed = 0
 
+        child_handles = []
         for idx, user_id in enumerate(owner_user_ids):
             model_name = f"owner_{user_id}_{params.league_id}_v1"
             workflow.logger.info(
-                f"Training model {idx + 1}/{num_owners}: "
+                f"Starting training {idx + 1}/{num_owners}: "
                 f"user={user_id} model={model_name}"
             )
 
-            child_result = await workflow.execute_child_workflow(
+            handle = await workflow.start_child_workflow(
                 ModelTrainingWorkflow.run,
                 ModelTrainingWorkflowParams(
                     league_id=params.league_id,
@@ -203,6 +209,30 @@ class LeagueModelTrainingWorkflow:
                     backoff_coefficient=2.0,
                 ),
             )
+            child_handles.append((user_id, model_name, handle))
+
+        # Await all children concurrently. return_exceptions=True so 
+        # 1 fail does not abort training for all models
+        child_results = await asyncio.gather(
+            *(handle for _, _, handle in child_handles),
+            return_exceptions=True,
+        )
+
+        for (user_id, model_name, _), child_result in zip(child_handles, child_results):
+            if isinstance(child_result, BaseException):
+                num_failed += 1
+                workflow.logger.error(
+                    f"Owner training failed: user={user_id} "
+                    f"model={model_name} error={child_result}"
+                )
+                owner_results.append({
+                    "user_id": user_id,
+                    "model_name": model_name,
+                    "skipped": False,
+                    "failed": True,
+                    "error": str(child_result),
+                })
+                continue
 
             skipped = child_result.get("skipped", False)
             if skipped:
@@ -221,14 +251,14 @@ class LeagueModelTrainingWorkflow:
             })
 
             workflow.logger.info(
-                f"Owner {idx + 1}/{num_owners} done: "
-                f"user={user_id} skipped={skipped} "
+                f"Owner done: user={user_id} skipped={skipped} "
                 f"samples={child_result.get('num_samples', 0)}"
             )
 
         workflow.logger.info(
             f"LeagueModelTrainingWorkflow complete — "
-            f"trained={num_trained}, skipped={num_skipped}, total={num_owners}"
+            f"trained={num_trained}, skipped={num_skipped}, "
+            f"failed={num_failed}, total={num_owners}"
         )
 
         return {
@@ -237,6 +267,7 @@ class LeagueModelTrainingWorkflow:
             "num_owners": num_owners,
             "num_trained": num_trained,
             "num_skipped": num_skipped,
+            "num_failed": num_failed,
             "owner_results": owner_results,
             "activity_data": workflow_activities,
         }

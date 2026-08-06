@@ -270,7 +270,7 @@ cmd_pipeline() {
     api_call GET "/healthz" || { err "API not reachable at ${BASE_URL}"; exit 1; }
 
     # Step 1: Full data collection
-    info "Step 1: Full data collection"
+    info "Step 1: Full data collection (~45ms-1s)"
     warn "This collects team owners, leagues, drafts, and players..."
     local collect_result
     collect_result=$(curl -s -X POST "${BASE_URL}/full-data-collection/run?username=$(urlencode "$user")&league_name=$(urlencode "$league")" \
@@ -326,7 +326,7 @@ else:
     echo ""
 
     # Step 2: Train all owner models (with historical league data)
-    info "Step 2: Training models for all owners in league (including historical seasons)..."
+    info "Step 2: Training models for all owners in league with historical seasons (~20-25ms per owner)..."
     local train_url="/league-model-training/run?league_id=${league_id}"
     [[ -n "$additional_league_ids" ]] && train_url="${train_url}&${additional_league_ids}"
     api_call POST "$train_url" || {
@@ -334,11 +334,11 @@ else:
     }
 
     # Step 3: Verify models
-    info "Step 3: Listing trained models"
+    info "Step 3: Listing trained models (~0.1ms)"
     api_call GET "/models"
 
     # Step 4: Run mock draft simulation
-    info "Step 4: Running mock draft simulation..."
+    info "Step 4: Running mock draft simulation (~15s)..."
     local sim_url="/mock-draft-simulation/run?league_id=${league_id}"
     [[ -n "$additional_league_ids" ]] && sim_url="${sim_url}&${additional_league_ids}"
     cmd_simulate_draft "${league_id}" $(echo "$collect_result" | python3 -c "

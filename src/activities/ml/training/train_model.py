@@ -91,42 +91,14 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
         }
 
     try:
-        owner_profile = np.array(input.owner_profile, dtype=np.float32)
-
         trait = input.personality_trait or get_random_personality_trait()
-        personality_vec = np.array(
-            list(get_personality_trait_vector(trait).values()), dtype=np.float32
+        all_features, all_labels, group_sizes = await asyncio.to_thread(
+            sample_loop, samples, input.owner_profile, trait
         )
 
-        all_features: List[np.ndarray] = []
-        all_labels: List[int] = []
-        group_sizes: List[int] = []
-
-        for sample in samples:
-            candidate_features: List[List[float]] = sample["candidate_features"]
-            context_vec: List[float] = sample["context"]
-            target_idx: int = sample["target_idx"]
-            n = len(candidate_features)
-
-            if n == 0:
-                continue
-
-            player_array = np.array(candidate_features, dtype=np.float32)
-            context_tiled = np.tile(
-                np.array(context_vec, dtype=np.float32), (n, 1)
-            )
-            profile_tiled = np.tile(owner_profile, (n, 1))
-            personality_tiled = np.tile(personality_vec, (n, 1))
-
-            X_group = np.hstack([
-                player_array, profile_tiled, context_tiled, personality_tiled
-            ])
-            all_features.append(X_group)
-
-            labels = [0] * n
-            labels[target_idx] = 1
-            all_labels.extend(labels)
-            group_sizes.append(n)
+        if not all_features or not all_labels or not group_sizes:
+            activity.logger.info(f"No valid features/labels/groups for '{input.model_name}'; no training.")
+            raise ValueError(f"No valid training data for '{input.model_name}' after processing samples.")
 
         X_train = np.vstack(all_features)
         y_train = np.array(all_labels, dtype=np.float32)
@@ -182,3 +154,40 @@ async def train_team_owner_model(input: TrainTeamOwnerModelParams) -> Dict[str, 
     except Exception as e:
         activity.logger.error(f"Failed to train model '{input.model_name}': {str(e)}")
         raise
+
+def sample_loop(sample_list: List[Dict[str, Any]], owner_profile: List[float], trait: str):
+    team_owner_profile = np.array(owner_profile, dtype=np.float32)
+    personality_vec = np.array(
+        list(get_personality_trait_vector(trait).values()), dtype=np.float32
+    )
+
+    all_features: List[np.ndarray] = []
+    all_labels: List[int] = []
+    group_sizes: List[int] = []
+
+    for sample in sample_list:
+        candidate_features: List[List[float]] = sample["candidate_features"]
+        context_vec: List[float] = sample["context"]
+        target_idx: int = sample["target_idx"]
+        n = len(candidate_features)
+
+        if n == 0:
+            continue
+
+        player_array = np.array(candidate_features, dtype=np.float32)
+        context_tiled = np.tile(
+            np.array(context_vec, dtype=np.float32), (n, 1)
+        )
+        profile_tiled = np.tile(team_owner_profile, (n, 1))
+        personality_tiled = np.tile(personality_vec, (n, 1))
+
+        X_group = np.hstack([
+            player_array, profile_tiled, context_tiled, personality_tiled
+        ])
+        all_features.append(X_group)
+
+        labels = [0] * n
+        labels[target_idx] = 1
+        all_labels.extend(labels)
+        group_sizes.append(n)
+    return (all_features, all_labels, group_sizes)

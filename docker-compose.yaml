@@ -117,6 +117,7 @@ services:
       - TEMPORAL_HOST=${TEMPORAL_HOST}
       - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE}
       - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE}
+      - TEMPORAL_ML_TASK_QUEUE=${TEMPORAL_ML_TASK_QUEUE}
       - TEMPORAL_ML_PREDICTION_TASK_QUEUE=${TEMPORAL_ML_PREDICTION_TASK_QUEUE}
   # ML Worker (scikit-learn / LightGBM training & inference)
   ml_worker_service:
@@ -138,6 +139,32 @@ services:
       - TEMPORAL_HOST=${TEMPORAL_HOST}
       - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE}
       - TEMPORAL_TASK_QUEUE=${TEMPORAL_ML_TASK_QUEUE}
+      - MODEL_PATH=${MODEL_PATH:-/app/models}
+    volumes:
+      - ${MODEL_HOST_PATH:-./models}:/app/models
+
+  # ML Prediction Worker (scikit-learn / LightGBM inference)
+  ml_prediction_worker_service:
+    build:
+      context: ./src
+      dockerfile: Dockerfile.ml_prediction_worker_service
+    container_name: ml_prediction_worker_service
+    depends_on:
+      ml_worker_service:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      temporal_server:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_HOST=${TEMPORAL_HOST}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE}
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_ML_PREDICTION_TASK_QUEUE}
       - MODEL_PATH=${MODEL_PATH:-/app/models}
     volumes:
       - ${MODEL_HOST_PATH:-./models}:/app/models
