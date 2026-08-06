@@ -163,7 +163,11 @@ class FullDataCollectionWorkflow:
             task_timeout=timedelta(minutes=10),
         )
         # Step 2 and 3 workflows in parallel, idependent of each other
-        *league_season_results, players_result = await gather(*league_season_wf_handlers, player_data_collection_wf)
+        *league_season_results, players_result = await gather(
+            *league_season_wf_handlers, 
+            player_data_collection_wf, 
+            return_exceptions=True
+        )
 
         child_workflow_results.append(
             {

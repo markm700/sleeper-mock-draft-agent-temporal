@@ -12,15 +12,13 @@ with workflow.unsafe.imports_passed_through():
     from activities.clients.ml_client import get_ml_model_manager
     from activities.clients.postgres_client import get_postgres_client_manager
     # ML Workflows
-    from workflows.model_management import ModelManagementWorkflow
-    from workflows.model_training import ModelTrainingWorkflow
-    from workflows.league_model_training import LeagueModelTrainingWorkflow
+    from workflows.model_prediction import ModelPredictionWorkflow
+    from workflows.mock_draft_simulation import MockDraftSimulationWorkflow
     # ML Activities
+    from activities.ml.models.manage_model import list_models
+    from activities.ml.predictions.predict_player_pick import predict_owner_draft_pick, batch_predict_owner, get_player_features_from_db
+    from activities.ml.predictions.get_draft_simulation_context import get_draft_simulation_context
     from activities.ml.calculate_adp import calculate_adp_from_picks
-    from activities.ml.models.manage_model import build_owner_model, get_model_status, list_models, delete_model
-    from activities.ml.training.prepare_training_data import prepare_owner_training_data
-    from activities.ml.training.train_model import train_team_owner_model
-    from activities.ml.get_league_team_owners import get_league_team_owners
 
 
 async def main():
@@ -33,7 +31,7 @@ async def main():
         setup_logging()
         temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
         temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
-        temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "example-ml-task-queue")
+        temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "example-ml-prediction-task-queue")
 
         print(f"Connecting to Temporal server {temporal_host} namespace={temporal_namespace} ...")
         client = await Client.connect(
@@ -46,33 +44,32 @@ async def main():
         print("Initializing workflow and activity shared clients...")
         ml_client = get_ml_model_manager()
         postgres_client = get_postgres_client_manager()
-
+        
         try:
-            print(f"Starting ML Workflow Worker...")
+            print(f"Starting ML Prediction Worker...")
             worker = Worker(
                 client,
                 task_queue=temporal_task_queue,
+                max_concurrent_activities=30,
+                max_concurrent_workflow_tasks=100,
                 workflows=[
-                    ModelManagementWorkflow,
-                    ModelTrainingWorkflow,
-                    LeagueModelTrainingWorkflow,
+                    ModelPredictionWorkflow,
+                    MockDraftSimulationWorkflow,
                 ],
                 activities=[
-                    get_model_status,
-                    build_owner_model,
+                    get_player_features_from_db,
+                    predict_owner_draft_pick,
+                    batch_predict_owner,
                     list_models,
-                    delete_model,
                     calculate_adp_from_picks,
-                    prepare_owner_training_data,
-                    train_team_owner_model,
-                    get_league_team_owners,
+                    get_draft_simulation_context,
                 ],
             )
-            print("ML Workflow Worker started.")
+            print("ML Prediction Worker started.")
 
             await worker.run()
         except Exception as e:
-            print(f"ML Workflow Worker failed to start: {e}")
+            print(f"ML Prediction Worker failed to start: {e}")
         finally:
             ## Shutdown - close shared clients
             print("Closing shared clients...")
@@ -82,12 +79,12 @@ async def main():
             if postgres_client:
                 await postgres_client.close()
                 print("Postgres client closed.")
-            print("ML Workflow Worker has shut down.")
+            print("ML Prediction Worker has shut down.")
 
     except KeyboardInterrupt:
-        print("ML Workflow Worker stopped by user")
+        print("ML Prediction Worker stopped by user")
     except Exception as e:
-        print(f"ML Workflow Worker error: {e}\n{traceback.format_exc()}")
+        print(f"ML Prediction Worker error: {e}\n{traceback.format_exc()}")
         raise
 
 if __name__ == "__main__":

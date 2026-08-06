@@ -17,7 +17,7 @@ The output is structured for direct consumption by train_team_owner_model.
 
 from collections import defaultdict
 from pydantic.dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Final, List, Optional
 
 from temporalio import activity, workflow
 
@@ -29,20 +29,22 @@ with workflow.unsafe.imports_passed_through():
 
 
 # Maximum number of negative examples to include per training sample.
-MAX_NEGATIVES: int = 9  # 1 positive + 9 negatives = 10-way classification per pick
+MAX_NEGATIVES: Final[int] = 9  # 1 positive + 9 negatives = 10-way classification per pick
 
-_POSITION_MAP: Dict[str, int] = {"QB": 0, "RB": 1, "WR": 2, "TE": 3, "K": 4, "DEF": 5}
-_STATUS_MAP: Dict[str, float] = {
+_POSITION_MAP: Final[Dict[str, int]] = {"QB": 0, "RB": 1, "WR": 2, "TE": 3, "K": 4, "DEF": 5}
+_STATUS_MAP: Final[Dict[str, float]] = {
     "Active": 1.0, "Inactive": 0.0, "Reserve": 0.5, "PUP": 0.3, "Suspended": 0.2,
 }
 
 # Standard roster slot sizes used for context normalisation
-_RB_SLOTS = 4.0
-_WR_SLOTS = 5.0
-_QB_SLOTS = 3.0
-_TE_SLOTS = 3.0
-_ROUND_NORM = 18.0
-_PICK_NORM = 200.0
+_RB_SLOTS: Final[float] = 4.0
+_WR_SLOTS: Final[float] = 5.0
+_QB_SLOTS: Final[float] = 3.0
+_TE_SLOTS: Final[float] = 3.0
+
+# Normalization constants for pick_no and round to scale to [0,1]
+_ROUND_NORM: Final[float] = 15.0
+_PICK_NORM: Final[float] = 150.0
 
 
 @dataclass(frozen=True, kw_only=True)

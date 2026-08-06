@@ -8,7 +8,7 @@ from temporalio import workflow
 from observability.logging_config import setup_logging
 
 with workflow.unsafe.imports_passed_through():
-    # Service/Client Managers
+    # Client Managers
     from activities.clients.postgres_client import get_postgres_client_manager
     from activities.clients.sleeper_client_credential import get_sleeper_client_manager
     # Data Collection Workflows
@@ -37,7 +37,7 @@ async def main():
         setup_logging()
         temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
         temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
-        temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "task-queue-placeholder")
+        temporal_task_queue: str = os.getenv("TEMPORAL_TASK_QUEUE", "example-task-queue")
 
         print(f"Connecting to Temporal server {temporal_host} namespace={temporal_namespace} ...")
         client = await Client.connect(
@@ -46,10 +46,10 @@ async def main():
         )
         print(f"Connected to Temporal server!")
 
-        # Initialize activity/workflow clients
-        sleeper = get_sleeper_client_manager()
-        postgres = get_postgres_client_manager()
-        postgres.create_all_tables()  # Only for development/testing - use Alembic migrations in production!
+        # Initialize shared clients
+        print("Initializing workflow and activity shared clients...")
+        postgres_client = get_postgres_client_manager()
+        sleeper_client = get_sleeper_client_manager()
 
         try:
             print(f"Starting Workflow Worker...")
@@ -79,10 +79,15 @@ async def main():
         except Exception as e:
             print(f"Workflow Worker failed to start: {e}")
         finally:
-            # Ensure clients used are closed
-            await sleeper.close()
-            postgres.drop_all_tables()  # Only for development/testing - remove in production!
-            await postgres.close()
+            ## Shutdown - close shared clients
+            print("Closing shared clients...")
+            if sleeper_client:
+                sleeper_client.close()
+                print("Sleeper client closed.")
+            if postgres_client:
+                await postgres_client.drop_all_tables()  # Only for development/testing - remove in production!
+                postgres_client.close()
+                print("Postgres client closed.")
             print("Workflow Worker has shut down.")
 
     except KeyboardInterrupt:

@@ -85,7 +85,8 @@ class DraftDataCollectionWorkflow:
                 start_to_close_timeout=timedelta(seconds=30),
                 activity_id=f"activity-get_traded_draft_picks-{params.league_id}-{params.season}-{wf_hex}",
                 retry_policy=activity_retry_policy,
-            )
+            ),
+            return_exceptions = True
         )
         workflow.logger.info(f"Successfully collected draft picks for all drafts in the league: {len(draft_pick_results)} drafts processed")
         workflow.logger.info(f"Draft Pick Activity results: {[len(result.get('draft_picks', [])) for result in draft_pick_results]} picks per draft")
